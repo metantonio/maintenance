@@ -16,6 +16,8 @@ from core.network_scanner import NetworkScanner
 from core.security_auditor import SecurityAuditor
 from core.disk_tracker import DiskTracker, format_bytes
 from core.temp_cleaner import TempCleaner
+from core.venv_manager import VenvManager
+from core.process_auditor import ProcessAuditor
 
 
 class ModernApp(ctk.CTk):
@@ -38,6 +40,8 @@ class ModernApp(ctk.CTk):
         self.security_auditor = SecurityAuditor()
         self.disk_tracker = DiskTracker()
         self.temp_cleaner = TempCleaner()
+        self.venv_manager = VenvManager()
+        self.process_auditor = ProcessAuditor()
 
         # Estados de datos en memoria
         self.cached_wifi_data = None
@@ -45,6 +49,9 @@ class ModernApp(ctk.CTk):
         self.cached_security_data = None
         self.cached_disk_data = None
         self.cached_temp_scan = None
+        self.cached_venvs = []
+        self.cached_processes = []
+        self.venv_checkboxes = {}
 
         # Control de hilos
         self.active_scan_thread = None
@@ -64,7 +71,7 @@ class ModernApp(ctk.CTk):
         # ---------------- BARRA LATERAL (SIDEBAR) ----------------
         self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color="#13171f")
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(7, weight=1)
+        self.sidebar_frame.grid_rowconfigure(9, weight=1)
 
         # Logo / Título
         self.logo_label = ctk.CTkLabel(
@@ -73,17 +80,19 @@ class ModernApp(ctk.CTk):
             font=ctk.CTkFont(size=18, weight="bold"),
             text_color="#38bdf8"
         )
-        self.logo_label.grid(row=0, column=0, padx=20, pady=(24, 20))
+        self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 16))
 
         # Botones de navegación
         self.nav_buttons = {}
 
         views = [
-            ("wifi", "📶  Wi-Fi & Conexión"),
+            ("wifi", "📶  Wi-Fi & Red"),
             ("network", "💻  Dispositivos LAN"),
             ("security", "🛡️  Seguridad & Riesgos"),
             ("disk", "📈  Disco (7 Días)"),
             ("cleaner", "🧹  Limpiar Temporales"),
+            ("venvs", "🐍  Entornos Virtuales"),
+            ("processes", "⚠️  Procesos Activos"),
         ]
 
         for idx, (view_id, text) in enumerate(views, start=1):
@@ -92,24 +101,24 @@ class ModernApp(ctk.CTk):
                 text=text,
                 anchor="w",
                 font=ctk.CTkFont(size=13, weight="bold"),
-                height=42,
+                height=38,
                 corner_radius=8,
                 fg_color="transparent",
                 text_color="#94a3b8",
                 hover_color="#1e293b",
                 command=lambda v=view_id: self.show_view(v)
             )
-            btn.grid(row=idx, column=0, padx=14, pady=4, sticky="ew")
+            btn.grid(row=idx, column=0, padx=14, pady=3, sticky="ew")
             self.nav_buttons[view_id] = btn
 
         # Versión e información inferior
         self.version_label = ctk.CTkLabel(
             self.sidebar_frame,
-            text="v1.0.0 • Python 3.14\nProtección Local Activa",
+            text="v1.1.0 • Python 3.14\nProtección Local Activa",
             font=ctk.CTkFont(size=11),
             text_color="#64748b"
         )
-        self.version_label.grid(row=8, column=0, padx=20, pady=20)
+        self.version_label.grid(row=10, column=0, padx=20, pady=16)
 
         # ---------------- CONTENEDOR PRINCIPAL (PÁGINAS) ----------------
         self.content_container = ctk.CTkFrame(self, corner_radius=0, fg_color="#0a0d14")
@@ -123,7 +132,9 @@ class ModernApp(ctk.CTk):
             "network": self._create_network_view(),
             "security": self._create_security_view(),
             "disk": self._create_disk_view(),
-            "cleaner": self._create_cleaner_view()
+            "cleaner": self._create_cleaner_view(),
+            "venvs": self._create_venvs_view(),
+            "processes": self._create_processes_view()
         }
 
     def show_view(self, view_id: str):
@@ -958,11 +969,507 @@ class ModernApp(ctk.CTk):
         )
         messagebox.showinfo("Limpieza Exitosa", msg)
 
+    # =========================================================================
+    # VISTA 6: GESTOR DE ENTORNOS VIRTUALES (VENVS MANAGER)
+    # =========================================================================
+    def _create_venvs_view(self) -> ctk.CTkFrame:
+        frame = ctk.CTkFrame(self.content_container, fg_color="transparent")
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(2, weight=1)
+
+        # Encabezado con acciones
+        header_box = ctk.CTkFrame(frame, fg_color="transparent")
+        header_box.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+
+        title = ctk.CTkLabel(
+            header_box,
+            text="Gestor de Entornos Virtuales de Python",
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color="#f8fafc"
+        )
+        title.pack(side="left")
+
+        actions_box = ctk.CTkFrame(header_box, fg_color="transparent")
+        actions_box.pack(side="right")
+
+        self.btn_scan_venvs = ctk.CTkButton(
+            actions_box,
+            text="🔍 Buscar Entornos",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#0284c7",
+            hover_color="#0369a1",
+            width=140,
+            command=self.start_venvs_scan
+        )
+        self.btn_scan_venvs.pack(side="left", padx=(0, 10))
+
+        self.btn_delete_selected_venvs = ctk.CTkButton(
+            actions_box,
+            text="🗑️ Eliminar Seleccionados",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#dc2626",
+            hover_color="#b91c1c",
+            width=170,
+            command=self._confirm_delete_selected_venvs
+        )
+        self.btn_delete_selected_venvs.pack(side="left")
+
+        # Banner de resumen
+        self.venvs_banner = ctk.CTkFrame(frame, fg_color="#13171f", corner_radius=10)
+        self.venvs_banner.grid(row=1, column=0, sticky="ew", pady=(0, 12))
+
+        self.venvs_banner_label = ctk.CTkLabel(
+            self.venvs_banner,
+            text="Haz clic en 'Buscar Entornos' para detectar entornos venv en tus proyectos y recuperar gigabytes de disco.",
+            font=ctk.CTkFont(size=13),
+            text_color="#94a3b8"
+        )
+        self.venvs_banner_label.pack(anchor="w", padx=16, pady=12)
+
+        # Contenedor scrollable de entornos
+        self.venvs_scroll_frame = ctk.CTkScrollableFrame(
+            frame,
+            fg_color="#13171f",
+            corner_radius=12,
+            border_width=1,
+            border_color="#1e293b"
+        )
+        self.venvs_scroll_frame.grid(row=2, column=0, sticky="nsew")
+
+        return frame
+
+    def start_venvs_scan(self):
+        """Inicia la búsqueda de entornos virtuales en segundo plano."""
+        self.btn_scan_venvs.configure(state="disabled", text="⏳ Buscando...")
+        self.venvs_banner_label.configure(text="Buscando entornos virtuales en C:\\Repositorios y carpetas de proyectos...")
+
+        # Limpiar contenedor anterior
+        for widget in self.venvs_scroll_frame.winfo_children():
+            widget.destroy()
+
+        def worker():
+            def progress(path, count):
+                self.after(0, lambda: self.venvs_banner_label.configure(
+                    text=f"Buscando... ({count} entornos encontrados hasta ahora) | {path[:60]}..."
+                ))
+
+            venvs = self.venv_manager.scan_virtual_environments(progress_callback=progress)
+            self.cached_venvs = venvs
+            self.after(0, lambda: self._on_venvs_scan_finished(venvs))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_venvs_scan_finished(self, venvs: List[Dict[str, Any]]):
+        self.btn_scan_venvs.configure(state="normal", text="🔍 Buscar Entornos")
+
+        total_bytes = sum(v["size_bytes"] for v in venvs)
+        total_formatted = format_bytes(total_bytes)
+
+        self.venvs_banner_label.configure(
+            text=f"📦 Se encontraron {len(venvs)} entornos virtuales ocupando un total de {total_formatted} en disco.",
+            text_color="#38bdf8"
+        )
+
+        self.venv_checkboxes.clear()
+
+        if not venvs:
+            lbl = ctk.CTkLabel(
+                self.venvs_scroll_frame,
+                text="No se encontraron entornos virtuales en las carpetas exploradas.",
+                font=ctk.CTkFont(size=14),
+                text_color="#94a3b8"
+            )
+            lbl.pack(pady=40)
+            return
+
+        for item in venvs:
+            self._add_venv_card(item)
+
+    def _add_venv_card(self, venv_data: Dict[str, Any]):
+        card = ctk.CTkFrame(self.venvs_scroll_frame, fg_color="#0f172a", corner_radius=8)
+        card.pack(fill="x", pady=4, padx=4)
+
+        # Fila superior de la tarjeta
+        top_row = ctk.CTkFrame(card, fg_color="transparent")
+        top_row.pack(fill="x", padx=12, pady=(8, 4))
+
+        var = tk.BooleanVar(value=False)
+        self.venv_checkboxes[venv_data["path"]] = (var, venv_data)
+
+        if venv_data["is_current"]:
+            # Entorno protegido
+            lock_label = ctk.CTkLabel(
+                top_row,
+                text="🔒 [APP ACTUAL]",
+                font=ctk.CTkFont(size=11, weight="bold"),
+                text_color="#10b981"
+            )
+            lock_label.pack(side="left", padx=(0, 8))
+        else:
+            cb = ctk.CTkCheckBox(top_row, text="", variable=var, width=24)
+            cb.pack(side="left", padx=(0, 8))
+
+        lbl_title = ctk.CTkLabel(
+            top_row,
+            text=venv_data["display_name"],
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color="#f8fafc"
+        )
+        lbl_title.pack(side="left")
+
+        # Insignia de tamaño
+        sz_color = "#f43f5e" if venv_data["size_bytes"] > 1024 * 1024 * 1024 else "#38bdf8"
+        badge_sz = ctk.CTkLabel(
+            top_row,
+            text=f" {venv_data['size_formatted']} ",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=sz_color
+        )
+        badge_sz.pack(side="left", padx=12)
+
+        # Insignia de Python
+        lbl_py = ctk.CTkLabel(
+            top_row,
+            text=f"Python {venv_data['python_version']}",
+            font=ctk.CTkFont(size=11),
+            text_color="#94a3b8"
+        )
+        lbl_py.pack(side="left", padx=6)
+
+        # Botones a la derecha
+        btn_box = ctk.CTkFrame(top_row, fg_color="transparent")
+        btn_box.pack(side="right")
+
+        btn_open = ctk.CTkButton(
+            btn_box,
+            text="📂 Abrir",
+            width=65,
+            height=26,
+            font=ctk.CTkFont(size=11),
+            fg_color="#1e293b",
+            hover_color="#334155",
+            command=lambda p=venv_data["path"]: self.disk_tracker.open_in_explorer(p)
+        )
+        btn_open.pack(side="left", padx=(0, 6))
+
+        if not venv_data["is_current"]:
+            btn_del = ctk.CTkButton(
+                btn_box,
+                text="🗑️ Eliminar",
+                width=75,
+                height=26,
+                font=ctk.CTkFont(size=11, weight="bold"),
+                fg_color="#dc2626",
+                hover_color="#b91c1c",
+                command=lambda p=venv_data["path"], n=venv_data["display_name"]: self._confirm_delete_single_venv(p, n)
+            )
+            btn_del.pack(side="left")
+
+        # Fila inferior con la ruta completa
+        lbl_path = ctk.CTkLabel(
+            card,
+            text=f"Ruta: {venv_data['path']}   |   Modificado: {venv_data['last_modified']}",
+            font=ctk.CTkFont(size=11),
+            text_color="#64748b",
+            anchor="w"
+        )
+        lbl_path.pack(fill="x", padx=12, pady=(0, 8))
+
+    def _confirm_delete_single_venv(self, venv_path: str, display_name: str):
+        confirm = messagebox.askyesno(
+            "Confirmar Eliminación",
+            f"¿Estás seguro de que deseas eliminar permanentemente el entorno virtual:\n\n"
+            f"• {display_name}\n"
+            f"• Ruta: {venv_path}\n\n"
+            f"Esta acción no se puede deshacer."
+        )
+        if not confirm:
+            return
+
+        res = self.venv_manager.delete_virtual_environment(venv_path)
+        if res["success"]:
+            messagebox.showinfo(
+                "Entorno Eliminado",
+                f"✅ Entorno virtual eliminado con éxito.\nSe han liberado {res['freed_formatted']} de espacio."
+            )
+            self.start_venvs_scan()
+        else:
+            messagebox.showerror("Error al Eliminar", f"No se pudo eliminar el entorno:\n{res.get('error')}")
+
+    def _confirm_delete_selected_venvs(self):
+        selected = []
+        for path, (var, data) in self.venv_checkboxes.items():
+            if var.get() and not data["is_current"]:
+                selected.append(data)
+
+        if not selected:
+            messagebox.showwarning("Atención", "No has seleccionado ningún entorno virtual para eliminar.")
+            return
+
+        total_bytes = sum(item["size_bytes"] for item in selected)
+        total_formatted = format_bytes(total_bytes)
+
+        confirm = messagebox.askyesno(
+            "Confirmar Eliminación Múltiple",
+            f"¿Deseas eliminar permanentemente los {len(selected)} entornos virtuales seleccionados?\n\n"
+            f"• Espacio total que se liberará: {total_formatted}\n\n"
+            f"Esta acción eliminará las carpetas completas del disco."
+        )
+        if not confirm:
+            return
+
+        deleted_count = 0
+        freed_bytes = 0
+        errors = []
+
+        for item in selected:
+            res = self.venv_manager.delete_virtual_environment(item["path"])
+            if res["success"]:
+                deleted_count += 1
+                freed_bytes += res["freed_bytes"]
+            else:
+                errors.append(f"{item['display_name']}: {res.get('error')}")
+
+        msg = f"🎉 Se eliminaron {deleted_count} entornos virtuales.\nEspacio liberado: {format_bytes(freed_bytes)}."
+        if errors:
+            msg += f"\n\nHubo {len(errors)} errores al eliminar algunos entornos."
+
+        messagebox.showinfo("Limpieza Completada", msg)
+        self.start_venvs_scan()
+
+    # =========================================================================
+    # VISTA 7: MONITOR DE PROCESOS ACTIVOS & PELIGROSOS
+    # =========================================================================
+    def _create_processes_view(self) -> ctk.CTkFrame:
+        frame = ctk.CTkFrame(self.content_container, fg_color="transparent")
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(2, weight=1)
+
+        # Encabezado
+        header_box = ctk.CTkFrame(frame, fg_color="transparent")
+        header_box.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+
+        title = ctk.CTkLabel(
+            header_box,
+            text="Monitor de Procesos Activos & Detección de Amenazas",
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color="#f8fafc"
+        )
+        title.pack(side="left")
+
+        actions_box = ctk.CTkFrame(header_box, fg_color="transparent")
+        actions_box.pack(side="right")
+
+        self.proc_filter_var = tk.BooleanVar(value=True)
+        self.cb_only_suspicious = ctk.CTkCheckBox(
+            actions_box,
+            text="Solo Sospechosos / Peligrosos",
+            variable=self.proc_filter_var,
+            font=ctk.CTkFont(size=12),
+            text_color="#cbd5e1",
+            command=self._render_processes_list
+        )
+        self.cb_only_suspicious.pack(side="left", padx=(0, 14))
+
+        self.btn_refresh_procs = ctk.CTkButton(
+            actions_box,
+            text="🔄 Analizar Procesos",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#0284c7",
+            hover_color="#0369a1",
+            width=150,
+            command=self.start_processes_scan
+        )
+        self.btn_refresh_procs.pack(side="left")
+
+        # Banner de estado de procesos
+        self.procs_banner = ctk.CTkFrame(frame, fg_color="#13171f", corner_radius=10)
+        self.procs_banner.grid(row=1, column=0, sticky="ew", pady=(0, 12))
+
+        self.procs_banner_label = ctk.CTkLabel(
+            self.procs_banner,
+            text="Haz clic en 'Analizar Procesos' para escanear todos los procesos en busca de mineros, suplantaciones o ejecutables en Temp.",
+            font=ctk.CTkFont(size=13),
+            text_color="#94a3b8"
+        )
+        self.procs_banner_label.pack(anchor="w", padx=16, pady=12)
+
+        # Contenedor scrollable de procesos
+        self.procs_scroll_frame = ctk.CTkScrollableFrame(
+            frame,
+            fg_color="#13171f",
+            corner_radius=12,
+            border_width=1,
+            border_color="#1e293b"
+        )
+        self.procs_scroll_frame.grid(row=2, column=0, sticky="nsew")
+
+        return frame
+
+    def start_processes_scan(self):
+        """Escanea todos los procesos activos en segundo plano."""
+        self.btn_refresh_procs.configure(state="disabled", text="⏳ Analizando...")
+        self.procs_banner_label.configure(text="Inspeccionando procesos en ejecución, rutas y firmas...")
+
+        def worker():
+            procs = self.process_auditor.scan_running_processes()
+            self.cached_processes = procs
+            self.after(0, lambda: self._on_processes_scan_finished(procs))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_processes_scan_finished(self, procs: List[Dict[str, Any]]):
+        self.btn_refresh_procs.configure(state="normal", text="🔄 Analizar Procesos")
+
+        danger_count = sum(1 for p in procs if p["risk_level"] == "PELIGRO")
+        susp_count = sum(1 for p in procs if p["risk_level"] == "SOSPECHOSO")
+
+        if danger_count > 0:
+            msg = f"🚨 ¡ALERTA! Se han detectado {danger_count} proceso(s) de ALTO PELIGRO y {susp_count} sospechoso(s)."
+            color = "#ef4444"
+        elif susp_count > 0:
+            msg = f"⚠️ Atención: Se han detectado {susp_count} proceso(s) sospechoso(s) entre {len(procs)} procesos activos."
+            color = "#f59e0b"
+        else:
+            msg = f"✅ Sistema limpio: {len(procs)} procesos analizados sin indicios de mineros, suplantaciones ni troyanos activos."
+            color = "#00C851"
+
+        self.procs_banner_label.configure(text=msg, text_color=color)
+        self._render_processes_list()
+
+    def _render_processes_list(self):
+        """Renderiza los procesos en el frame según el filtro activo."""
+        for widget in self.procs_scroll_frame.winfo_children():
+            widget.destroy()
+
+        only_suspicious = self.proc_filter_var.get()
+        items = self.cached_processes
+
+        if only_suspicious:
+            items = [p for p in items if p["is_suspicious"]]
+
+        if not items:
+            lbl = ctk.CTkLabel(
+                self.procs_scroll_frame,
+                text="No hay procesos sospechosos o peligrosos activos en este momento." if only_suspicious else "No hay procesos para mostrar.",
+                font=ctk.CTkFont(size=14),
+                text_color="#94a3b8"
+            )
+            lbl.pack(pady=40)
+            return
+
+        for p in items:
+            self._add_process_card(p)
+
+    def _add_process_card(self, p: Dict[str, Any]):
+        card = ctk.CTkFrame(self.procs_scroll_frame, fg_color="#0f172a", corner_radius=8)
+        card.pack(fill="x", pady=4, padx=4)
+
+        # Fila superior
+        top_row = ctk.CTkFrame(card, fg_color="transparent")
+        top_row.pack(fill="x", padx=12, pady=(8, 4))
+
+        # Badge de riesgo
+        badge_risk = ctk.CTkLabel(
+            top_row,
+            text=f" {p['risk_level']} ",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=p["risk_color"]
+        )
+        badge_risk.pack(side="left", padx=(0, 8))
+
+        lbl_name = ctk.CTkLabel(
+            top_row,
+            text=f"{p['name']} (PID: {p['pid']})",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#f8fafc"
+        )
+        lbl_name.pack(side="left")
+
+        lbl_usage = ctk.CTkLabel(
+            top_row,
+            text=f"RAM: {p['memory_mb']} MB   |   CPU: {p['cpu_percent']}%",
+            font=ctk.CTkFont(size=11),
+            text_color="#94a3b8"
+        )
+        lbl_usage.pack(side="left", padx=12)
+
+        # Botones
+        btn_box = ctk.CTkFrame(top_row, fg_color="transparent")
+        btn_box.pack(side="right")
+
+        if p["exe"]:
+            btn_open = ctk.CTkButton(
+                btn_box,
+                text="📂 Carpeta",
+                width=70,
+                height=26,
+                font=ctk.CTkFont(size=11),
+                fg_color="#1e293b",
+                hover_color="#334155",
+                command=lambda e=p["exe"]: self.process_auditor.open_process_folder(e)
+            )
+            btn_open.pack(side="left", padx=(0, 6))
+
+        btn_kill = ctk.CTkButton(
+            btn_box,
+            text="🛑 Finalizar",
+            width=75,
+            height=26,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#dc2626",
+            hover_color="#b91c1c",
+            command=lambda pid=p["pid"], n=p["name"]: self._confirm_kill_process(pid, n)
+        )
+        btn_kill.pack(side="left")
+
+        # Motivos si es sospechoso
+        if p["reasons"]:
+            for r in p["reasons"]:
+                lbl_r = ctk.CTkLabel(
+                    card,
+                    text=f"⚠️ {r}",
+                    font=ctk.CTkFont(size=11, weight="bold"),
+                    text_color=p["risk_color"],
+                    anchor="w"
+                )
+                lbl_r.pack(fill="x", padx=12, pady=1)
+
+        # Ruta
+        exe_text = p["exe"] if p["exe"] else "(Sin archivo ejecutable en disco)"
+        lbl_path = ctk.CTkLabel(
+            card,
+            text=f"Ruta: {exe_text}",
+            font=ctk.CTkFont(size=11),
+            text_color="#64748b",
+            anchor="w"
+        )
+        lbl_path.pack(fill="x", padx=12, pady=(0, 8))
+
+    def _confirm_kill_process(self, pid: int, name: str):
+        confirm = messagebox.askyesno(
+            "Confirmar Cierre de Proceso",
+            f"¿Estás seguro de que deseas forzar el cierre del proceso?\n\n"
+            f"• Nombre: {name}\n"
+            f"• PID: {pid}\n\n"
+            f"Si es un proceso crítico de Windows o de una app con datos no guardados, podría cerrarse inesperadamente."
+        )
+        if not confirm:
+            return
+
+        res = self.process_auditor.kill_process(pid)
+        if res["success"]:
+            messagebox.showinfo("Proceso Finalizado", res["message"])
+            self.start_processes_scan()
+        else:
+            messagebox.showerror("Error al Finalizar", res["message"])
+
 
 def launch():
     """Función de entrada para arrancar la aplicación."""
     app = ModernApp()
     app.mainloop()
+
 
 
 if __name__ == "__main__":

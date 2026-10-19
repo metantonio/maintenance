@@ -57,6 +57,19 @@ Puedes ejecutar la aplicación de tres formas:
   - Vaciar Papelera de reciclaje (opcional con casilla)
 - **Protección Antifallos**: Omite silenciosamente archivos bloqueados o en uso por aplicaciones abiertas sin congelar la app.
 
+### 6. 🐍 Gestor de Entornos Virtuales (Venvs)
+- **Detección Automática**: Localiza entornos virtuales (`venv`, `.venv`, `conda`) en `C:\Repositorios` y carpetas de proyectos del usuario.
+- **Métricas Clave**: Calcula el peso exacto en MB/GB de cada entorno, versión de Python utilizada y fecha de última modificación.
+- **Eliminación Individual o en Lote**: Selección múltiple con casillas para eliminar de golpe entornos obsoletos, o botón individual de eliminación con confirmación.
+- **Protección de la App**: Protege de forma automática el entorno virtual en uso por esta aplicación para evitar borrados accidentales.
+
+### 7. ⚠️ Monitor de Procesos Peligrosos y Sospechosos
+- **Detección de Suplantación (Masquerading)**: Alerta si procesos con nombres de sistema (`svchost.exe`, `csrss.exe`, `lsass.exe`, `explorer.exe`) se ejecutan fuera de `System32`.
+- **Rutas de Riesgo**: Detecta ejecutables corriendo directamente desde carpetas temporales (`%TEMP%`).
+- **Comandos Ofuscados**: Identifica llamadas a PowerShell codificadas en base64 o descargas remotas no autorizadas.
+- **Mineros de Criptomonedas**: Detecta patrones y ejecutables de minería (`xmrig`, `minerd`, etc.).
+- **Gestión Inmediata**: Botón para forzar el cierre (`Finalizar Proceso`) y abrir la carpeta del binario en el Explorador.
+
 ---
 
 ## 📂 Estructura del Proyecto
@@ -69,12 +82,16 @@ maintnance/
 │   ├── network_scanner.py    # Escaneo ARP multihilo de dispositivos LAN
 │   ├── security_auditor.py   # Detección de ARP spoofing, DNS y puertos
 │   ├── disk_tracker.py       # Rastreo de archivos creados en 7 días
-│   └── temp_cleaner.py       # Limpiador seguro de temporales y dumps
+│   ├── temp_cleaner.py       # Limpiador seguro de temporales y dumps
+│   ├── venv_manager.py       # Gestor y limpiador de entornos virtuales
+│   └── process_auditor.py    # Auditor de procesos activos sospechosos
 ├── gui/
 │   └── app.py                # Interfaz gráfica moderna (CustomTkinter)
-├── main.py                   # Lanzador de la aplicación
-├── iniciar_herramienta.bat   # Script .bat para ejecutar con GUI
-├── run.bat                   # Acceso directo al ejecutable por lotes
+├── dist/
+│   └── NetShieldPro.exe      # Ejecutable independiente standalone
+├── build_exe.bat             # Compilador automático a .exe
+├── iniciar_herramienta.bat   # Lanzador directo para Windows
+├── run.bat                   # Acceso rápido
 └── requirements.txt          # Dependencias
 ```
 
