@@ -1,0 +1,80 @@
+# 🛡️ NetShield & DiskCleaner Pro
+
+Suite en Python para análisis de redes Wi-Fi, auditoría de ciberseguridad (detección de espionaje/intervención) y diagnóstico/mantenimiento de espacio en disco en Windows.
+
+---
+
+## 🚀 Inicio Rápido (Un Clic)
+
+Simplemente haz doble clic en el archivo:
+- **`iniciar_herramienta.bat`** o **`run.bat`**
+
+El script se encargará automáticamente de:
+1. Verificar la instalación de Python.
+2. Crear el entorno virtual `venv` si todavía no existe.
+3. Instalar o verificar las dependencias necesarias (`customtkinter`, `psutil`, `requests`).
+4. Lanzar la aplicación con su **Interfaz Gráfica (GUI)** en modo oscuro moderno.
+
+---
+
+## 📋 Módulos y Funcionalidades
+
+### 1. 📶 Wi-Fi & Red Local
+- **Detalles de la Conexión Activa**: SSID, BSSID (MAC del Punto de Acceso), Canal, Banda (2.4 GHz / 5 GHz / 6 GHz), Tipo de Radio (802.11ax/ac), Señal (%), RSSI (dBm) y velocidad en Mbps.
+- **Auditoría de Cifrado**: Detecta si la red es abierta (sin contraseña), usa cifrados obsoletos y vulnerables (WEP, WPA-TKIP) o protocolos seguros (WPA2-CCMP, WPA3).
+- **Puerta de Enlace & DNS**: Identifica la IP y MAC del Router (Gateway), fabricante y servidores DNS configurados (Google, Cloudflare, Quad9, VPN/Tailscale o ISP).
+
+### 2. 💻 Explorador de Dispositivos en Red (LAN Scanner)
+- **Escaneo Multihilo Ultrarrápido**: Emplea llamadas Win32 nativas (`iphlpapi.SendARP`) y sockets en paralelo para descubrir en 2-4 segundos todos los dispositivos conectados a tu subred.
+- **Resolución de Fabricante (OUI)**: Base de datos local integrada con más de 300 fabricantes (Apple, Samsung, Xiaomi, Huawei, ZTE, Intel, Qualcomm, Raspberry Pi, etc.) y detección de direcciones MAC aleatorias/privadas de móviles (iOS/Android).
+- **Resolución de Nombres & Puertos**: Resuelve hostnames por DNS inverso y escanea puertos clave (80, 443, 22, 445, 8080).
+
+### 3. 🛡️ Auditoría de Ciberseguridad & Anti-Hacking
+- **Detección de Envenenamiento ARP (MitM)**: Comprueba si la MAC del router está asignada a otra IP o si hay direcciones físicas duplicadas que indiquen un ataque Man-In-The-Middle para interceptar tu tráfico.
+- **Integridad de DNS (Anti-Hijacking)**: Evalúa si tus peticiones DNS están siendo desviadas a servidores no autorizados o IPs locales maliciosas.
+- **Auditoría de Puertos en Escucha (Listeners)**: Analiza qué procesos de tu PC tienen puertos abiertos expuestos a la red local (`0.0.0.0` o `::`), alertando sobre puertos sospechosos de troyanos o herramientas de control remoto no deseadas.
+- **Puntuación de Seguridad (Score 0-100)**: Semáforo visual con recomendaciones específicas en español.
+
+### 4. 📈 Rastreador de Archivos Recientes (Últimos 7 Días)
+- **Diagnóstico de Pérdida de Espacio**: Escaneo optimizado con `os.scandir` para localizar los archivos que más espacio han devorado en los últimos 7 días (configurable a 3, 7, 14 o 30 días).
+- **Ranking de Archivos Pesados**: Lista ordenada por tamaño (descargas olvidadas, vídeos, imágenes ISO y especialmente volcados de error `.dmp`).
+- **Botón Directo "Abrir"**: Permite abrir el Explorador de Windows posicionándose directamente sobre el archivo encontrado.
+
+### 5. 🧹 Limpiador Seguro de Temporales
+- **Análisis Previo**: Calcula con exactitud cuántos GB puedes recuperar antes de borrar.
+- **Categorías Limpiadas**:
+  - Archivos temporales de usuario (`%TEMP%`)
+  - Archivos temporales del sistema (`C:\Windows\Temp`)
+  - Volcados de fallo de aplicaciones (`CrashDumps`, causantes de caídas drásticas de espacio)
+  - Informes de error de Windows (WER)
+  - Caché de descargas residuales de Windows Update
+  - Caché de sombreadores DirectX (`D3DSCache`)
+  - Vaciar Papelera de reciclaje (opcional con casilla)
+- **Protección Antifallos**: Omite silenciosamente archivos bloqueados o en uso por aplicaciones abiertas sin congelar la app.
+
+---
+
+## 📂 Estructura del Proyecto
+
+```
+maintnance/
+├── core/
+│   ├── oui_database.py       # Base de datos OUI de fabricantes MAC
+│   ├── wifi_analyzer.py      # Análisis de Wi-Fi, señal y red
+│   ├── network_scanner.py    # Escaneo ARP multihilo de dispositivos LAN
+│   ├── security_auditor.py   # Detección de ARP spoofing, DNS y puertos
+│   ├── disk_tracker.py       # Rastreo de archivos creados en 7 días
+│   └── temp_cleaner.py       # Limpiador seguro de temporales y dumps
+├── gui/
+│   └── app.py                # Interfaz gráfica moderna (CustomTkinter)
+├── main.py                   # Lanzador de la aplicación
+├── iniciar_herramienta.bat   # Script .bat para ejecutar con GUI
+├── run.bat                   # Acceso directo al ejecutable por lotes
+└── requirements.txt          # Dependencias
+```
+
+---
+
+## 🛠️ Requisitos Técnicos
+- Windows 10 u 11 (64-bit).
+- Python 3.10 o superior (verificado en Python 3.14).
