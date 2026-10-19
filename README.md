@@ -70,6 +70,14 @@ Puedes ejecutar la aplicación de tres formas:
 - **Mineros de Criptomonedas**: Detecta patrones y ejecutables de minería (`xmrig`, `minerd`, etc.).
 - **Gestión Inmediata**: Botón para forzar el cierre (`Finalizar Proceso`) y abrir la carpeta del binario en el Explorador.
 
+### 8. 📡 Detección de Fuga de Datos & Tráfico Espía (Anti-Exfiltración)
+- **Inspección de Conexiones Salientes en Tiempo Real**: Audita sockets activos hacia internet vinculándolos con su proceso emisor exacto (`.exe`, PID, memoria y ruta).
+- **Abuso de Procesos del Sistema (LOLBins)**: Alerta si herramientas como `powershell.exe`, `cmd.exe`, `rundll32.exe` o `certutil.exe` están comunicándose directamente hacia una IP pública externa.
+- **Canales de Exfiltración Habituales**: Detección de conexiones no oficiales a APIs de bots de Telegram o Webhooks de Discord (técnica de InfoStealers como RedLine, Lumma o AgentTesla).
+- **Puertos de Malware y RATs**: Identificación de tráfico saliente hacia puertos típicos de backdoors y troyanos (1337, 4444, 5555, 6667, 8888, etc.).
+- **Alerta de Acceso a Credenciales**: Detección de procesos no autorizados accediendo a bases de datos de contraseñas de navegadores (Chrome/Edge/Firefox) o carteras cripto.
+- **Botón "🛑 Cortar Conexión"**: Finaliza inmediatamente el proceso espía para cerrar el socket e impedir la subida de datos sensibles.
+
 ---
 
 ## 📂 Estructura del Proyecto
@@ -77,22 +85,23 @@ Puedes ejecutar la aplicación de tres formas:
 ```
 maintnance/
 ├── core/
-│   ├── oui_database.py       # Base de datos OUI de fabricantes MAC
-│   ├── wifi_analyzer.py      # Análisis de Wi-Fi, señal y red
-│   ├── network_scanner.py    # Escaneo ARP multihilo de dispositivos LAN
-│   ├── security_auditor.py   # Detección de ARP spoofing, DNS y puertos
-│   ├── disk_tracker.py       # Rastreo de archivos creados en 7 días
-│   ├── temp_cleaner.py       # Limpiador seguro de temporales y dumps
-│   ├── venv_manager.py       # Gestor y limpiador de entornos virtuales
-│   └── process_auditor.py    # Auditor de procesos activos sospechosos
+│   ├── oui_database.py          # Base de datos OUI de fabricantes MAC
+│   ├── wifi_analyzer.py         # Análisis de Wi-Fi, señal y red
+│   ├── network_scanner.py       # Escaneo ARP multihilo de dispositivos LAN
+│   ├── security_auditor.py      # Detección de ARP spoofing, DNS y puertos
+│   ├── data_leak_detector.py    # Detección de fuga de datos y tráfico espía
+│   ├── disk_tracker.py          # Rastreo de archivos creados en 7 días
+│   ├── temp_cleaner.py          # Limpiador seguro de temporales y dumps
+│   ├── venv_manager.py          # Gestor y limpiador de entornos virtuales
+│   └── process_auditor.py       # Auditor de procesos activos sospechosos
 ├── gui/
-│   └── app.py                # Interfaz gráfica moderna (CustomTkinter)
+│   └── app.py                   # Interfaz gráfica moderna (CustomTkinter)
 ├── dist/
-│   └── NetShieldPro.exe      # Ejecutable independiente standalone
-├── build_exe.bat             # Compilador automático a .exe
-├── iniciar_herramienta.bat   # Lanzador directo para Windows
-├── run.bat                   # Acceso rápido
-└── requirements.txt          # Dependencias
+│   └── NetShieldPro.exe         # Ejecutable independiente standalone
+├── build_exe.bat                # Compilador automático a .exe
+├── iniciar_herramienta.bat      # Lanzador directo para Windows
+├── run.bat                      # Acceso rápido
+└── requirements.txt             # Dependencias
 ```
 
 ---

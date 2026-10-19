@@ -18,6 +18,7 @@ from core.disk_tracker import DiskTracker, format_bytes
 from core.temp_cleaner import TempCleaner
 from core.venv_manager import VenvManager
 from core.process_auditor import ProcessAuditor
+from core.data_leak_detector import DataLeakDetector
 
 
 class ModernApp(ctk.CTk):
@@ -38,6 +39,7 @@ class ModernApp(ctk.CTk):
         self.wifi_analyzer = WiFiAnalyzer()
         self.network_scanner = NetworkScanner()
         self.security_auditor = SecurityAuditor()
+        self.data_leak_detector = DataLeakDetector()
         self.disk_tracker = DiskTracker()
         self.temp_cleaner = TempCleaner()
         self.venv_manager = VenvManager()
@@ -47,10 +49,12 @@ class ModernApp(ctk.CTk):
         self.cached_wifi_data = None
         self.cached_devices = []
         self.cached_security_data = None
+        self.cached_leak_data = None
         self.cached_disk_data = None
         self.cached_temp_scan = None
         self.cached_venvs = []
         self.cached_processes = []
+        self.leak_filter_var = None
         self.venv_checkboxes = {}
 
         # Control de hilos
@@ -71,7 +75,7 @@ class ModernApp(ctk.CTk):
         # ---------------- BARRA LATERAL (SIDEBAR) ----------------
         self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color="#13171f")
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(9, weight=1)
+        self.sidebar_frame.grid_rowconfigure(10, weight=1)
 
         # Logo / Título
         self.logo_label = ctk.CTkLabel(
@@ -89,6 +93,7 @@ class ModernApp(ctk.CTk):
             ("wifi", "📶  Wi-Fi & Red"),
             ("network", "💻  Dispositivos LAN"),
             ("security", "🛡️  Seguridad & Riesgos"),
+            ("leak_detector", "📡  Fuga de Datos / Espía"),
             ("disk", "📈  Disco (7 Días)"),
             ("cleaner", "🧹  Limpiar Temporales"),
             ("venvs", "🐍  Entornos Virtuales"),
@@ -118,7 +123,7 @@ class ModernApp(ctk.CTk):
             font=ctk.CTkFont(size=11),
             text_color="#64748b"
         )
-        self.version_label.grid(row=10, column=0, padx=20, pady=16)
+        self.version_label.grid(row=11, column=0, padx=20, pady=16)
 
         # ---------------- CONTENEDOR PRINCIPAL (PÁGINAS) ----------------
         self.content_container = ctk.CTkFrame(self, corner_radius=0, fg_color="#0a0d14")
@@ -131,6 +136,7 @@ class ModernApp(ctk.CTk):
             "wifi": self._create_wifi_view(),
             "network": self._create_network_view(),
             "security": self._create_security_view(),
+            "leak_detector": self._create_leak_view(),
             "disk": self._create_disk_view(),
             "cleaner": self._create_cleaner_view(),
             "venvs": self._create_venvs_view(),
@@ -612,6 +618,305 @@ class ModernApp(ctk.CTk):
             d_lbl.pack(anchor="w", padx=14, pady=2)
 
         ctk.CTkLabel(card, text="", height=4).pack()
+
+    # =========================================================================
+    # VISTA: DETECCIÓN DE FUGA DE DATOS & TRÁFICO ESPÍA
+    # =========================================================================
+    def _create_leak_view(self) -> ctk.CTkFrame:
+        frame = ctk.CTkFrame(self.content_container, fg_color="transparent")
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(2, weight=1)
+
+        # Encabezado
+        header_box = ctk.CTkFrame(frame, fg_color="transparent")
+        header_box.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+
+        title = ctk.CTkLabel(
+            header_box,
+            text="Detección de Fuga de Datos & Tráfico Espía",
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color="#f8fafc"
+        )
+        title.pack(side="left")
+
+        btn_box = ctk.CTkFrame(header_box, fg_color="transparent")
+        btn_box.pack(side="right")
+
+        self.leak_filter_var = tk.BooleanVar(value=True)
+        chk_filter = ctk.CTkCheckBox(
+            btn_box,
+            text="Solo Tráfico Sospechoso / Peligro",
+            font=ctk.CTkFont(size=12),
+            variable=self.leak_filter_var,
+            command=self._render_leak_list
+        )
+        chk_filter.pack(side="left", padx=(0, 14))
+
+        self.btn_scan_leak = ctk.CTkButton(
+            btn_box,
+            text="📡 Analizar Transmisiones",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#0284c7",
+            hover_color="#0369a1",
+            width=180,
+            command=self.start_leak_scan
+        )
+        self.btn_scan_leak.pack(side="left")
+
+        # Banner de Estado Global
+        self.leak_banner = ctk.CTkFrame(frame, fg_color="#13171f", corner_radius=12, border_width=1, border_color="#1e293b")
+        self.leak_banner.grid(row=1, column=0, sticky="ew", pady=(0, 12))
+
+        self.leak_status_label = ctk.CTkLabel(
+            self.leak_banner,
+            text="Estado de Exfiltración: Pendiente de Análisis",
+            font=ctk.CTkFont(size=17, weight="bold"),
+            text_color="#38bdf8"
+        )
+        self.leak_status_label.pack(anchor="w", padx=16, pady=(12, 4))
+
+        self.leak_desc_label = ctk.CTkLabel(
+            self.leak_banner,
+            text="Pulsa 'Analizar Transmisiones' para auditar conexiones hacia internet, canales C2 (Telegram/Discord) y procesos espía.",
+            font=ctk.CTkFont(size=13),
+            text_color="#94a3b8"
+        )
+        self.leak_desc_label.pack(anchor="w", padx=16, pady=(0, 10))
+
+        # Cuadrícula de Contadores
+        self.leak_stats_frame = ctk.CTkFrame(self.leak_banner, fg_color="transparent")
+        self.leak_stats_frame.pack(fill="x", padx=16, pady=(0, 12))
+
+        self.stat_leak_total = self._create_leak_stat_badge(self.leak_stats_frame, "Transmisiones Salientes", "0", "#38bdf8")
+        self.stat_leak_total.pack(side="left", padx=(0, 12))
+
+        self.stat_leak_crit = self._create_leak_stat_badge(self.leak_stats_frame, "Exfiltración Crítica", "0", "#ef4444")
+        self.stat_leak_crit.pack(side="left", padx=(0, 12))
+
+        self.stat_leak_warn = self._create_leak_stat_badge(self.leak_stats_frame, "Tráfico Sospechoso", "0", "#f59e0b")
+        self.stat_leak_warn.pack(side="left", padx=(0, 12))
+
+        self.stat_leak_safe = self._create_leak_stat_badge(self.leak_stats_frame, "Conexiones Normales", "0", "#00C851")
+        self.stat_leak_safe.pack(side="left", padx=(0, 12))
+
+        # Frame Scrollable de Transmisiones
+        self.leak_scroll_frame = ctk.CTkScrollableFrame(
+            frame,
+            fg_color="#13171f",
+            corner_radius=12,
+            border_width=1,
+            border_color="#1e293b"
+        )
+        self.leak_scroll_frame.grid(row=2, column=0, sticky="nsew")
+
+        return frame
+
+    def _create_leak_stat_badge(self, parent, label_text: str, val_text: str, color: str) -> ctk.CTkFrame:
+        card = ctk.CTkFrame(parent, fg_color="#1e293b", corner_radius=8, width=170, height=48)
+        card.pack_propagate(False)
+
+        lbl = ctk.CTkLabel(card, text=label_text, font=ctk.CTkFont(size=10, weight="bold"), text_color="#94a3b8")
+        lbl.pack(anchor="w", padx=10, pady=(4, 0))
+
+        val = ctk.CTkLabel(card, text=val_text, font=ctk.CTkFont(size=15, weight="bold"), text_color=color)
+        val.pack(anchor="w", padx=10, pady=(0, 4))
+        card.val_label = val
+        return card
+
+    def start_leak_scan(self):
+        """Inicia la auditoría de conexiones salientes y exfiltración de datos."""
+        self.btn_scan_leak.configure(state="disabled", text="⏳ Analizando Salida...")
+        self.leak_status_label.configure(text="Inspeccionando sockets de internet, procesos emisores y destinos...", text_color="#38bdf8")
+
+        def worker():
+            result = self.data_leak_detector.audit_outbound_transmissions()
+            self.cached_leak_data = result
+            self.after(0, lambda: self._on_leak_scan_finished(result))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_leak_scan_finished(self, result: Dict[str, Any]):
+        self.btn_scan_leak.configure(state="normal", text="📡 Analizar Transmisiones")
+
+        self.leak_status_label.configure(text=result["status_text"], text_color=result["status_color"])
+        self.leak_desc_label.configure(text=result["summary_desc"])
+
+        self.stat_leak_total.val_label.configure(text=str(result["total_transmissions"]))
+        self.stat_leak_crit.val_label.configure(text=str(result["critical_count"]))
+        self.stat_leak_warn.val_label.configure(text=str(result["warning_count"]))
+        self.stat_leak_safe.val_label.configure(text=str(result["normal_count"]))
+
+        self._render_leak_list()
+
+    def _render_leak_list(self):
+        for widget in self.leak_scroll_frame.winfo_children():
+            widget.destroy()
+
+        if not self.cached_leak_data:
+            lbl = ctk.CTkLabel(
+                self.leak_scroll_frame,
+                text="Pulsa 'Analizar Transmisiones' para iniciar la detección de fuga de datos.",
+                font=ctk.CTkFont(size=14),
+                text_color="#94a3b8"
+            )
+            lbl.pack(pady=40)
+            return
+
+        items = self.cached_leak_data.get("transmissions", [])
+        only_suspicious = self.leak_filter_var.get() if self.leak_filter_var else False
+
+        if only_suspicious:
+            items = [t for t in items if t["is_suspicious"]]
+
+        # Mostrar recomendaciones si hay alertas
+        recs = self.cached_leak_data.get("recommendations", [])
+        if recs:
+            rec_card = ctk.CTkFrame(self.leak_scroll_frame, fg_color="#1e293b", corner_radius=10)
+            rec_card.pack(fill="x", pady=(2, 10), padx=4)
+
+            lbl_rec_title = ctk.CTkLabel(
+                rec_card,
+                text="💡 Recomendaciones Inmediatas de Contención",
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color="#38bdf8"
+            )
+            lbl_rec_title.pack(anchor="w", padx=14, pady=(8, 3))
+
+            for r in recs:
+                lbl = ctk.CTkLabel(rec_card, text=f"• {r}", font=ctk.CTkFont(size=12), text_color="#f8fafc", justify="left")
+                lbl.pack(anchor="w", padx=14, pady=2)
+            ctk.CTkLabel(rec_card, text="", height=4).pack()
+
+        if not items:
+            msg = "No se detectaron transmisiones sospechosas o de riesgo en este momento." if only_suspicious else "No hay transmisiones activas."
+            lbl = ctk.CTkLabel(
+                self.leak_scroll_frame,
+                text=msg,
+                font=ctk.CTkFont(size=14),
+                text_color="#94a3b8"
+            )
+            lbl.pack(pady=40)
+            return
+
+        for t in items:
+            self._add_leak_card(t)
+
+    def _add_leak_card(self, t: Dict[str, Any]):
+        card = ctk.CTkFrame(self.leak_scroll_frame, fg_color="#0f172a", corner_radius=8)
+        card.pack(fill="x", pady=4, padx=4)
+
+        # Fila superior
+        top_row = ctk.CTkFrame(card, fg_color="transparent")
+        top_row.pack(fill="x", padx=12, pady=(8, 4))
+
+        # Badge de riesgo
+        badge_risk = ctk.CTkLabel(
+            top_row,
+            text=f" {t['risk_level']} ",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=t["risk_color"]
+        )
+        badge_risk.pack(side="left", padx=(0, 8))
+
+        lbl_proc = ctk.CTkLabel(
+            top_row,
+            text=f"{t['process_name']} (PID: {t['pid']})",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#f8fafc"
+        )
+        lbl_proc.pack(side="left")
+
+        # Flecha y destino
+        arrow_lbl = ctk.CTkLabel(
+            top_row,
+            text=" ➔ ",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#38bdf8"
+        )
+        arrow_lbl.pack(side="left", padx=4)
+
+        remote_desc = f"{t['remote_ip']}:{t['remote_port']}"
+        if t["remote_host"] and t["remote_host"] != t["remote_ip"]:
+            remote_desc += f"  ({t['remote_host'][:38]})"
+
+        lbl_remote = ctk.CTkLabel(
+            top_row,
+            text=remote_desc,
+            font=ctk.CTkFont(size=12),
+            text_color="#cbd5e1"
+        )
+        lbl_remote.pack(side="left")
+
+        # Botones de acción a la derecha
+        btn_box = ctk.CTkFrame(top_row, fg_color="transparent")
+        btn_box.pack(side="right")
+
+        if t["exe"]:
+            btn_open = ctk.CTkButton(
+                btn_box,
+                text="📂 Carpeta",
+                width=70,
+                height=26,
+                font=ctk.CTkFont(size=11),
+                fg_color="#1e293b",
+                hover_color="#334155",
+                command=lambda e=t["exe"]: self.data_leak_detector.open_process_folder(e)
+            )
+            btn_open.pack(side="left", padx=(0, 6))
+
+        btn_kill = ctk.CTkButton(
+            btn_box,
+            text="🛑 Cortar Conexión",
+            width=115,
+            height=26,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#dc2626",
+            hover_color="#b91c1c",
+            command=lambda pid=t["pid"], n=t["process_name"]: self._confirm_kill_leak_process(pid, n)
+        )
+        btn_kill.pack(side="left")
+
+        # Motivos si está alertado
+        if t["reasons"]:
+            for r in t["reasons"]:
+                lbl_r = ctk.CTkLabel(
+                    card,
+                    text=f"⚠️ {r}",
+                    font=ctk.CTkFont(size=11, weight="bold"),
+                    text_color=t["risk_color"],
+                    anchor="w",
+                    justify="left"
+                )
+                lbl_r.pack(fill="x", padx=12, pady=1)
+
+        # Ruta del ejecutable
+        exe_text = t["exe"] if t["exe"] else "(Sin archivo ejecutable directo en disco)"
+        lbl_path = ctk.CTkLabel(
+            card,
+            text=f"Ruta: {exe_text}   |   RAM: {t['memory_mb']} MB   |   Estado: {t['connection_state']}",
+            font=ctk.CTkFont(size=11),
+            text_color="#64748b",
+            anchor="w"
+        )
+        lbl_path.pack(fill="x", padx=12, pady=(0, 8))
+
+    def _confirm_kill_leak_process(self, pid: int, name: str):
+        confirm = messagebox.askyesno(
+            "Confirmar Cortar Conexión / Terminar Proceso",
+            f"¿Deseas terminar forzosamente el proceso para detener la transmisión?\n\n"
+            f"• Proceso: {name}\n"
+            f"• PID: {pid}\n\n"
+            f"Esto cerrará inmediatamente el socket de red y detendrá cualquier subida o descarga de datos."
+        )
+        if not confirm:
+            return
+
+        res = self.data_leak_detector.kill_process(pid)
+        if res["success"]:
+            messagebox.showinfo("Transmisión Detenida", res["message"])
+            self.start_leak_scan()
+        else:
+            messagebox.showerror("Error al Finalizar", res["message"])
 
     # =========================================================================
     # VISTA 4: RASTREADOR DE DISCO (ÚLTIMOS 7 DÍAS)
