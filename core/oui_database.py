@@ -117,9 +117,17 @@ OUI_DATABASE = {
     "00:04:1F": "Sony Interactive Entertainment (PlayStation)",
     "00:1D:0D": "Sony Interactive Entertainment (PlayStation)",
     "F8:46:1C": "Sony Interactive Entertainment (PlayStation)",
-    "00:09:BF": "Nintendo Co., Ltd. (Switch / Wii)",
-    "98:B6:E9": "Nintendo Co., Ltd. (Switch)",
-    "00:17:FA": "Microsoft Corp. (Xbox)", "7C:ED:8D": "Microsoft Corp. (Xbox)"
+    "00:17:FA": "Microsoft Corp. (Xbox)", "7C:ED:8D": "Microsoft Corp. (Xbox)",
+
+    # Dispositivos Smart TV / Proyectores VIDAA y China Dragon Technology (CDTech)
+    "44:90:BA": "China Dragon Technology (Proyector Wimius K14 / VIDAA)",
+    "60:51:7A": "China Dragon Technology (VIDAA Smart Device)",
+    "20:F4:1B": "China Dragon Technology (Smart TV / Projector)",
+    "00:1E:8C": "Hisense Electric (VIDAA OS)",
+    "24:DF:6A": "Hisense Electric (VIDAA OS)",
+    "E0:76:D0": "Hisense Electric (VIDAA OS)",
+    "AC:36:13": "Hisense Electric (VIDAA OS)",
+    "F4:39:09": "Hisense Electric (VIDAA OS)"
 }
 
 _mac_cache = {}
