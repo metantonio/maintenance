@@ -6,14 +6,19 @@ Suite en Python para análisis de redes Wi-Fi, auditoría de ciberseguridad (det
 
 ## 🚀 Inicio Rápido (Un Clic)
 
-Simplemente haz doble clic en el archivo:
-- **`iniciar_herramienta.bat`** o **`run.bat`**
+Puedes ejecutar la aplicación de tres formas:
 
-El script se encargará automáticamente de:
-1. Verificar la instalación de Python.
-2. Crear el entorno virtual `venv` si todavía no existe.
-3. Instalar o verificar las dependencias necesarias (`customtkinter`, `psutil`, `requests`).
-4. Lanzar la aplicación con su **Interfaz Gráfica (GUI)** en modo oscuro moderno.
+1. **Ejecutable Standalone (.EXE sin necesidad de Python)**:
+   - Ve a la carpeta `dist/` y haz doble clic en **`NetShieldPro.exe`**.
+   - No requiere tener Python instalado; incluye todo lo necesario.
+
+2. **Lanzador Directo**:
+   - Haz doble clic en **`iniciar_herramienta.bat`** o **`run.bat`**.
+   - Configura el entorno virtual automáticamente y abre la GUI.
+
+3. **Recompilar el .EXE cuando desees**:
+   - Haz doble clic en **`build_exe.bat`**.
+   - Compilará de nuevo el archivo `dist/NetShieldPro.exe` usando PyInstaller.
 
 ---
 
