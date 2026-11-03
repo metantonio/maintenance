@@ -153,6 +153,7 @@ try:
     check("gui.app importado", gui_mod is not None)
     check("ModernApp tiene _create_ransomware_view", hasattr(gui_mod.ModernApp, "_create_ransomware_view"))
     check("ModernApp tiene _create_hardening_view", hasattr(gui_mod.ModernApp, "_create_hardening_view"))
+    check("ModernApp tiene _create_help_view", hasattr(gui_mod.ModernApp, "_create_help_view"))
     check("ModernApp tiene _export_report", hasattr(gui_mod.ModernApp, "_export_report"))
 except Exception as e:
     check("gui.app importado", False, str(e))

@@ -94,7 +94,6 @@ class ModernApp(ctk.CTk):
         # ---------------- BARRA LATERAL (SIDEBAR) ----------------
         self.sidebar_frame = ctk.CTkFrame(self, width=220, corner_radius=0, fg_color="#13171f")
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(10, weight=1)
 
         # Logo / Título
         self.logo_label = ctk.CTkLabel(
@@ -103,7 +102,7 @@ class ModernApp(ctk.CTk):
             font=ctk.CTkFont(size=18, weight="bold"),
             text_color="#38bdf8"
         )
-        self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 16))
+        self.logo_label.grid(row=0, column=0, padx=20, pady=(18, 12))
 
         # Botones de navegación
         self.nav_buttons = {}
@@ -119,6 +118,7 @@ class ModernApp(ctk.CTk):
             ("processes", "⚠️  Procesos Activos"),
             ("ransomware", "🔒  Ransomware & Archivos"),
             ("hardening", "🛡️  Hidratación & Sistema"),
+            ("help", "❓  Centro de Ayuda"),
         ]
 
         for idx, (view_id, text) in enumerate(views, start=1):
@@ -126,16 +126,18 @@ class ModernApp(ctk.CTk):
                 self.sidebar_frame,
                 text=text,
                 anchor="w",
-                font=ctk.CTkFont(size=13, weight="bold"),
-                height=38,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                height=34,
                 corner_radius=8,
                 fg_color="transparent",
                 text_color="#94a3b8",
                 hover_color="#1e293b",
                 command=lambda v=view_id: self.show_view(v)
             )
-            btn.grid(row=idx, column=0, padx=14, pady=3, sticky="ew")
+            btn.grid(row=idx, column=0, padx=12, pady=2, sticky="ew")
             self.nav_buttons[view_id] = btn
+
+        self.sidebar_frame.grid_rowconfigure(len(views) + 1, weight=1)
 
         # Versión e información inferior
         self.version_label = ctk.CTkLabel(
@@ -144,7 +146,7 @@ class ModernApp(ctk.CTk):
             font=ctk.CTkFont(size=11),
             text_color="#64748b"
         )
-        self.version_label.grid(row=11, column=0, padx=20, pady=16)
+        self.version_label.grid(row=len(views) + 2, column=0, padx=20, pady=14)
 
         # ---------------- CONTENEDOR PRINCIPAL (PÁGINAS) ----------------
         self.content_container = ctk.CTkFrame(self, corner_radius=0, fg_color="#0a0d14")
@@ -163,7 +165,8 @@ class ModernApp(ctk.CTk):
             "venvs": self._create_venvs_view(),
             "processes": self._create_processes_view(),
             "ransomware": self._create_ransomware_view(),
-            "hardening": self._create_hardening_view()
+            "hardening": self._create_hardening_view(),
+            "help": self._create_help_view(),
         }
 
     def show_view(self, view_id: str):
@@ -2250,6 +2253,540 @@ class ModernApp(ctk.CTk):
             messagebox.showinfo("Reporte Exportado", f"Reporte guardado en:\n\n{path}")
         except Exception as e:
             messagebox.showerror("Error exportando reporte", str(e))
+
+    # =========================================================================
+    # VISTA 11: CENTRO DE AYUDA Y GUÍA DEL USUARIO
+    # =========================================================================
+    def _create_help_view(self) -> ctk.CTkFrame:
+        """Crea la vista interactiva del Centro de Ayuda y Documentación de Módulos."""
+        frame = ctk.CTkFrame(self.content_container, fg_color="transparent")
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(2, weight=1)
+
+        # Encabezado
+        header_box = ctk.CTkFrame(frame, fg_color="transparent")
+        header_box.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+
+        title_box = ctk.CTkFrame(header_box, fg_color="transparent")
+        title_box.pack(side="left")
+
+        title = ctk.CTkLabel(
+            title_box,
+            text="📖 Centro de Ayuda & Guía del Usuario",
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color="#f8fafc"
+        )
+        title.pack(anchor="w")
+
+        subtitle = ctk.CTkLabel(
+            title_box,
+            text="Explicación detallada, funcionamiento técnico y guía paso a paso de cada módulo de la aplicación.",
+            font=ctk.CTkFont(size=12),
+            text_color="#94a3b8"
+        )
+        subtitle.pack(anchor="w")
+
+        # Buscador interactivo
+        search_box = ctk.CTkFrame(header_box, fg_color="transparent")
+        search_box.pack(side="right")
+
+        self.help_search_var = tk.StringVar()
+        self.help_search_entry = ctk.CTkEntry(
+            search_box,
+            placeholder_text="🔍 Buscar tema o sección...",
+            textvariable=self.help_search_var,
+            width=260,
+            font=ctk.CTkFont(size=12)
+        )
+        self.help_search_entry.pack(side="left", padx=(0, 6))
+
+        btn_clear_search = ctk.CTkButton(
+            search_box,
+            text="✕",
+            width=28,
+            height=28,
+            fg_color="#1e293b",
+            hover_color="#334155",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            command=lambda: self.help_search_var.set("")
+        )
+        btn_clear_search.pack(side="left")
+
+        # Barra de Filtros por Categoría
+        filter_frame = ctk.CTkFrame(frame, fg_color="#13171f", corner_radius=10, border_width=1, border_color="#1e293b")
+        filter_frame.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+
+        lbl_filter = ctk.CTkLabel(
+            filter_frame,
+            text="Filtrar por Área:",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#cbd5e1"
+        )
+        lbl_filter.pack(side="left", padx=(14, 10), pady=8)
+
+        self.help_category_var = tk.StringVar(value="Todas")
+        self.help_cat_seg = ctk.CTkSegmentedButton(
+            filter_frame,
+            values=["Todas", "Redes & Wi-Fi", "Seguridad & Amenazas", "Disco & Sistema", "Guía Rápida"],
+            variable=self.help_category_var,
+            command=lambda _: self._filter_help_cards(),
+            font=ctk.CTkFont(size=12)
+        )
+        self.help_cat_seg.pack(side="left", padx=(0, 14), pady=6)
+
+        # Contenedor desplazable de tarjetas de ayuda
+        self.help_scroll_frame = ctk.CTkScrollableFrame(
+            frame,
+            fg_color="#13171f",
+            corner_radius=12,
+            border_width=1,
+            border_color="#1e293b"
+        )
+        self.help_scroll_frame.grid(row=2, column=0, sticky="nsew", padx=2, pady=2)
+
+        # Etiqueta de búsqueda sin resultados
+        self.help_empty_label = ctk.CTkLabel(
+            self.help_scroll_frame,
+            text="🔍 No se encontraron módulos ni temas que coincidan con la búsqueda.\nPrueba con otros términos (ej. wifi, dns, ransomware, temporales, puertos).",
+            font=ctk.CTkFont(size=13),
+            text_color="#94a3b8",
+            justify="center"
+        )
+
+        # Vinculación del evento de búsqueda en tiempo real
+        self.help_search_var.trace_add("write", lambda *_: self._filter_help_cards())
+
+        # Construcción inicial de las tarjetas
+        self.help_card_widgets = []
+        self._build_help_cards()
+
+        return frame
+
+    def _build_help_cards(self):
+        """Genera el catálogo explicativo para todas las secciones de la aplicación."""
+        sections = [
+            {
+                "id": "wifi",
+                "title": "1. 📶 Wi-Fi & Red Activa",
+                "category": "Redes & Wi-Fi",
+                "badge": "CONECTIVIDAD & CIFRADO",
+                "badge_color": "#0284c7",
+                "target_view": "wifi",
+                "keywords": "wifi wlan red ssid bssid ap router mac canal frecuencia banda ghz wpa wpa2 wpa3 wep tkip senal rssi dbm mbps dns gateway",
+                "purpose": "Auditar en detalle la conexión inalámbrica activa, la intensidad de la señal, la robustez del cifrado y la configuración del router y servidores DNS.",
+                "how_it_works": [
+                    "• Consulta nativa a la interfaz WLAN de Windows ('netsh wlan show interfaces') para extraer el SSID, BSSID (MAC física del Punto de Acceso), canal actual (1-165), bandas de frecuencia (2.4 GHz, 5 GHz o 6 GHz) y estándar de radio (802.11ax/ac/n/g).",
+                    "• Medición precisa de la calidad de señal en porcentaje y potencia real de recepción en dBm (RSSI), además de velocidades teóricas de enlace en Mbps de subida y bajada.",
+                    "• Análisis del protocolo de seguridad y cifrado de paquetes: WPA3-SAE, WPA2-CCMP (AES), WPA-TKIP o redes abiertas sin contraseña.",
+                    "• Identificación de la puerta de enlace predeterminada (Gateway), resolución del fabricante del router mediante su prefijo OUI y listado de servidores DNS configurados (Google, Cloudflare, Quad9, ISP, etc.)."
+                ],
+                "how_to_use": [
+                    "1. Accede a la pestaña '📶 Wi-Fi & Red' en la barra lateral.",
+                    "2. Pulsa el botón '🔄 Actualizar Análisis' en la esquina superior derecha.",
+                    "3. Revisa la tarjeta izquierda para datos de señal y radio, la tarjeta derecha para DNS y Gateway, y la tarjeta inferior para la evaluación de seguridad del cifrado."
+                ],
+                "alerts": [
+                    "🟢 WPA3-SAE / WPA2-CCMP (AES): Cifrado moderno y robusto contra interceptación y ataques de fuerza bruta.",
+                    "🟡 WPA-TKIP: Protocolo desactualizado y vulnerable a descifrado parcial de paquetes.",
+                    "🔴 Red Abierta o WEP: Riesgo crítico; cualquier usuario en el radio de alcance puede capturar tu tráfico no cifrado."
+                ],
+                "recommendation": "Nunca introduzcas contraseñas ni accedas a cuentas bancarias en redes abiertas sin usar VPN. En tu router personal, asegúrate de activar WPA2-AES o WPA3 y desactivar WPS."
+            },
+            {
+                "id": "network",
+                "title": "2. 💻 Dispositivos LAN (Escáner de Red Local)",
+                "category": "Redes & Wi-Fi",
+                "badge": "ESCANEO ARP MULTIHILO",
+                "badge_color": "#0ea5e9",
+                "target_view": "network",
+                "keywords": "lan red local arp sendarp ip mac oui fabricante dispositivos host hostname puertos vecinos intrusos subred",
+                "purpose": "Descubrir, clasificar y auditar todos los equipos, smartphones, consolas, dispositivos IoT e intrusos conectados a tu red local.",
+                "how_it_works": [
+                    "• Ejecuta un barrido paralelo ultrarrápido (2 a 4 segundos) mediante la API nativa de Windows 'SendARP' ('iphlpapi.dll') sobre las 254 IPs de tu subred (/24).",
+                    "• Resuelve direcciones MAC físicas y consulta una base de datos local OUI con más de 300 fabricantes (Apple, Samsung, Xiaomi, Huawei, Intel, Raspberry Pi, etc.).",
+                    "• Detección de Privacidad: Identifica si un dispositivo utiliza una dirección MAC aleatoria/privada (común en smartphones iOS y Android modernos).",
+                    "• Resolución inversa de nombres DNS (hostname) y escaneo selectivo de puertos clave (80 HTTP, 443 HTTPS, 22 SSH, 445 SMB, 8080)."
+                ],
+                "how_to_use": [
+                    "1. Ve a la pestaña '💻 Dispositivos LAN'.",
+                    "2. Pulsa el botón '🔍 Iniciar Escaneo de Red'.",
+                    "3. Observa el listado completo con la IP, nombre de equipo, fabricante identificado, dirección MAC y puertos expuestos de cada dispositivo."
+                ],
+                "alerts": [
+                    "🟢 Fabricante Conocido: Equipos de tu hogar u oficina (PC, Smart TV, móvil).",
+                    "🟡 MAC Aleatoria / Privada: Teléfono o tablet con funciones de anonimato Wi-Fi activadas.",
+                    "🔴 Dispositivo Desconocido con Puertos Abiertos (ej. 22 SSH o 445 SMB): Posible intruso conectado a tu Wi-Fi o equipo no autorizado."
+                ],
+                "recommendation": "Si detectas dispositivos que no reconoces, cambia la contraseña de tu red Wi-Fi en el router y activa el aislamiento de clientes o filtrado por MAC."
+            },
+            {
+                "id": "security",
+                "title": "3. 🛡️ Seguridad & Riesgos (Auditoría Anti-Hacking)",
+                "category": "Seguridad & Amenazas",
+                "badge": "AUDITORÍA MITM & DNS",
+                "badge_color": "#f59e0b",
+                "target_view": "security",
+                "keywords": "mitm man in the middle arp spoofing envenenamiento dns hijacking secuestro listeners puertos escuchando score puntuacion firewall",
+                "purpose": "Evaluar la seguridad de tu entorno de red frente a ataques Man-In-The-Middle (MitM), manipulación de DNS y servicios locales expuestos sin protección.",
+                "how_it_works": [
+                    "• Detección de Envenenamiento ARP (ARP Spoofing): Audita la tabla ARP de Windows para detectar direcciones MAC duplicadas o suplantación del router, técnica típica para interceptar tráfico de red.",
+                    "• Integridad de DNS (Anti-Hijacking): Resuelve dominios de control contra tus servidores configurados y contra resolvers seguros globales para descubrir desvíos hacia IPs maliciosas.",
+                    "• Auditoría de Puertos en Escucha (Listeners): Identifica qué aplicaciones o procesos locales están escuchando en '0.0.0.0' o '::', dejando puertas abiertas hacia otros equipos de la red.",
+                    "• Puntuación de Seguridad (Score 0-100): Genera un índice con diagnóstico por semáforo y recomendaciones automáticas de mitigación."
+                ],
+                "how_to_use": [
+                    "1. Dirígete a '🛡️ Seguridad & Riesgos'.",
+                    "2. Pulsa '🛡️ Ejecutar Auditoría'.",
+                    "3. Revisa la puntuación global en el encabezado y desglosa las tarjetas de ARP, DNS, Cifrado Wi-Fi y Puertos Expuestos."
+                ],
+                "alerts": [
+                    "🟢 Puntuación 90-100 (Seguro): Sin envenenamiento ARP, DNS legítimo y servicios protegidos.",
+                    "🟡 Puntuación 60-89 (Advertencia): Puertos en escucha globales o cifrado Wi-Fi mejorable.",
+                    "🔴 Puntuación < 60 (Riesgo Crítico): Envenenamiento ARP detectado o manipulación DNS activa."
+                ],
+                "recommendation": "Si detectas ARP Spoofing en una red pública, desconéctate de inmediato o activa una VPN con cifrado completo para tunelizar todo tu tráfico."
+            },
+            {
+                "id": "leak_detector",
+                "title": "4. 📡 Fuga de Datos / Espía (Anti-Exfiltración)",
+                "category": "Seguridad & Amenazas",
+                "badge": "ANTI-EXFILTRACIÓN & C2",
+                "badge_color": "#ef4444",
+                "target_view": "leak_detector",
+                "keywords": "exfiltracion fuga datos espia spyware infostealer c2 command control lolbins powershell certutil rundll32 bot telegram discord webhook dga dns udp 53 smb 445 rat backdoor troyano cortar conexion",
+                "purpose": "Monitorear en tiempo real las conexiones salientes hacia internet para neutralizar programas espía, infostealers, troyanos y fugas silenciosas de datos confidenciales.",
+                "how_it_works": [
+                    "• Audita sockets TCP y UDP activos en el sistema, vinculando cada conexión con su ejecutable exacto (.exe), PID, memoria consumida y ruta en disco.",
+                    "• Abuso de Binarios del Sistema (LOLBins): Alerta de inmediato si procesos como 'powershell.exe', 'cmd.exe', 'certutil.exe' o 'rundll32.exe' establecen comunicaciones hacia IPs públicas externas.",
+                    "• Exfiltración encubierta por DNS: Detecta consultas anómalas por UDP 53 a servidores desconocidos y nombres de dominio generados por algoritmos aleatorios (DGA).",
+                    "• Canales C2 y Webhooks: Detecta conexiones hacia servidores de comando y control o webhooks de Discord y bots de Telegram frecuentemente abusados por ladrones de datos (RedLine, Lumma, AgentTesla).",
+                    "• Puertos de Malware y RATs: Alerta sobre tráfico hacia puertos típicos de troyanos de acceso remoto (1337, 4444, 5555, 6667, 8888) y SMB saliente (puerto 445)."
+                ],
+                "how_to_use": [
+                    "1. Abre '📡 Fuga de Datos / Espía'.",
+                    "2. Pulsa '📡 Analizar Transmisiones'. Puedes activar la casilla 'Solo Tráfico Sospechoso / Peligro' para enfocar la revisión.",
+                    "3. Si identificas una conexión sospechosa o no autorizada, haz clic en el botón rojo '🛑 Cortar Conexión' para terminar el proceso emisor en el acto."
+                ],
+                "alerts": [
+                    "🔴 Exfiltración Crítica: Proceso LOLBin o troyano enviando datos hacia un servidor externo o webhook sospechoso.",
+                    "🟡 Tráfico Sospechoso: Conexiones a puertos no estándar o servidores DNS públicos desconocidos.",
+                    "🟢 Conexiones Normales: Navegadores y servicios legítimos comunicándose vía HTTPS (puerto 443)."
+                ],
+                "recommendation": "Ante una alerta crítica en un ejecutable desconocido, pulsa '🛑 Cortar Conexión', desconecta el equipo de la red y realiza un análisis exhaustivo con tu antivirus."
+            },
+            {
+                "id": "disk",
+                "title": "5. 📈 Consumo de Disco (Últimos 7 Días)",
+                "category": "Disco & Sistema",
+                "badge": "RASTREADOR DE ESPACIO",
+                "badge_color": "#8b5cf6",
+                "target_view": "disk",
+                "keywords": "disco gigas espacio gb mb archivos recientes creados 7 dias descargas dmp volcados scandir",
+                "purpose": "Localizar qué archivos creados o modificados recientemente están consumiendo tu almacenamiento y provocando caídas inesperadas de espacio libre.",
+                "how_it_works": [
+                    "• Escaneo optimizado a bajo nivel mediante 'os.scandir' para inspeccionar directorios sin sobrecargar el procesador ni congelar la interfaz.",
+                    "• Filtra archivos creados o modificados en la ventana de tiempo seleccionada (3, 7, 14 o 30 días).",
+                    "• Ordena los resultados de mayor a menor tamaño para revelar con rapidez los archivos más pesados.",
+                    "• Detecta con especial atención volcados de fallo del sistema (.dmp), imágenes ISO, instaladores gigantes, vídeos y archivos temporales pesados."
+                ],
+                "how_to_use": [
+                    "1. Ve a '📈 Disco (7 Días)'.",
+                    "2. Selecciona la unidad o carpeta a analizar y el rango de días (ej. 7 días).",
+                    "3. Pulsa '🔍 Rastrear Archivos'.",
+                    "4. En la lista resultante, pulsa el botón '📂 Abrir' en cualquier archivo para abrir el Explorador de Windows en su ubicación exacta."
+                ],
+                "alerts": [
+                    "📦 Archivos > 1 GB: Instaladores pesados, vídeos o volcados de error (.dmp) que suelen poder eliminarse o archivarse."
+                ],
+                "recommendation": "Revisa frecuentemente la carpeta Descargas y elimina instaladores '.iso' o '.zip' tras instalarlos para mantener el SSD desahogado."
+            },
+            {
+                "id": "cleaner",
+                "title": "6. 🧹 Limpiar Temporales (Mantenimiento Inteligente)",
+                "category": "Disco & Sistema",
+                "badge": "LIMPIEZA SEGURA",
+                "badge_color": "#10b981",
+                "target_view": "cleaner",
+                "keywords": "limpiar temporales basura temp crashdumps wer cache directx d3dscache papelera reciclaje windows update liberar espacio gigas",
+                "purpose": "Recuperar gigabytes de espacio en disco de forma segura eliminando archivos temporales, informes de error y cachés residuales que Windows no borra por sí mismo.",
+                "how_it_works": [
+                    "• Limpia selectivamente 7 categorías seguras: Temporales de Usuario (%TEMP%), Temporales del Sistema (C:\\Windows\\Temp), Volcados de Error de Apps (CrashDumps), Informes de Error de Windows (WER), Caché de Descargas de Windows Update, Caché de Sombreadores DirectX (D3DSCache) y Papelera de Reciclaje.",
+                    "• Protección Antifallos: Omite silenciosamente archivos bloqueados o en uso por aplicaciones abiertas sin congelar la app ni dañar procesos activos.",
+                    "• Modo Análisis Previo: Calcula con exactitud la cantidad de archivos y el tamaño exacto en MB/GB que se recuperará antes de proceder al borrado."
+                ],
+                "how_to_use": [
+                    "1. Accede a '🧹 Limpiar Temporales'.",
+                    "2. Pulsa '🔍 Analizar Archivos Temporales' para ver el diagnóstico de espacio recuperable.",
+                    "3. Marca o desmarca las casillas según tus preferencias (ej. Papelera de reciclaje).",
+                    "4. Haz clic en '🧹 Limpiar Archivos Seleccionados' y confirma la operación para liberar espacio."
+                ],
+                "alerts": [
+                    "🟢 Limpieza Completada: Muestra el espacio exacto recuperado y el total de archivos eliminados."
+                ],
+                "recommendation": "Ejecuta esta limpieza semanalmente o tras actualizaciones mayores de Windows para evitar la degradación del rendimiento de tu disco SSD."
+            },
+            {
+                "id": "venvs",
+                "title": "7. 🐍 Entornos Virtuales (Gestor Python)",
+                "category": "Disco & Sistema",
+                "badge": "DESARROLLO & PYTHON",
+                "badge_color": "#f59e0b",
+                "target_view": "venvs",
+                "keywords": "entornos virtuales venv .venv conda python pip paquetes librerias repositorios desarrollador espacio eliminar lote",
+                "purpose": "Localizar, medir y depurar entornos virtuales de Python olvidados o duplicados en tus carpetas de proyectos y repositorios de código.",
+                "how_it_works": [
+                    "• Rastreo recursivo inteligente en 'C:\\Repositorios', carpetas de usuario y proyectos buscando estructuras 'venv', '.venv' y entornos Conda.",
+                    "• Cálculo del tamaño real en disco en tiempo real (un entorno con PyTorch o TensorFlow puede superar los 5 GB de espacio).",
+                    "• Detección de la versión exacta de Python del entorno y fecha de última modificación.",
+                    "• Protección del Entorno Activo: Detecta e impide borrar el entorno virtual en el que se ejecuta NetShield para evitar la autodestrucción involuntaria."
+                ],
+                "how_to_use": [
+                    "1. Ve a '🐍 Entornos Virtuales'.",
+                    "2. Pulsa '🔍 Escanear Entornos Virtuales'.",
+                    "3. Usa las casillas de verificación para marcar entornos antiguos o haz clic en '🗑️ Eliminar' en un entorno específico.",
+                    "4. Si seleccionaste varios, pulsa '🗑️ Eliminar Seleccionados' para borrarlos todos de golpe."
+                ],
+                "alerts": [
+                    "🛡️ [PROTEGIDO - EN USO]: Entorno virtual propio de la aplicación NetShield (bloqueado para evitar borrado accidental)."
+                ],
+                "recommendation": "Elimina entornos virtuales de proyectos que ya no utilices; siempre podrás recrearlos en minutos ejecutando 'python -m venv venv' y 'pip install -r requirements.txt'."
+            },
+            {
+                "id": "processes",
+                "title": "8. ⚠️ Procesos Activos (Auditoría de Malware y Mineros)",
+                "category": "Seguridad & Amenazas",
+                "badge": "MONITOR DE PROCESOS",
+                "badge_color": "#ef4444",
+                "target_view": "processes",
+                "keywords": "procesos activos malware troyanos mineros xmrig minerd masquerading suplantacion svchost temp ofuscado base64 powershell finalizar proceso matar",
+                "purpose": "Supervisar todos los procesos en memoria para cazar malware, herramientas de suplantación de sistema (Masquerading), mineros de criptomonedas y comandos ofuscados.",
+                "how_it_works": [
+                    "• Detección de Suplantación (Masquerading): Detecta procesos con nombres críticos del sistema ('svchost.exe', 'csrss.exe', 'lsass.exe', 'explorer.exe') corriendo fuera de 'C:\\Windows\\System32'.",
+                    "• Detección de Rutas de Alto Riesgo: Alerta sobre programas lanzados directamente desde carpetas temporales (%TEMP% o AppData\\Local\\Temp), técnica habitual de instaladores troyanizados.",
+                    "• Comandos Ofuscados: Identifica llamadas a PowerShell codificadas en Base64 (-enc / -encodedcommand) o descargas web desde la consola.",
+                    "• Mineros de Criptomonedas: Comprueba patrones y binarios de minería ('xmrig', 'minerd', 'ethminer', etc.) y consumos excesivos no justificados."
+                ],
+                "how_to_use": [
+                    "1. Abre '⚠️ Procesos Activos'.",
+                    "2. Pulsa '🔍 Auditar Procesos'.",
+                    "3. Examina la lista clasificada por nivel de riesgo.",
+                    "4. Pulsa '📂 Abrir Carpeta' para revisar el archivo en el Explorador o '🛑 Finalizar Proceso' para cerrarlo forzosamente."
+                ],
+                "alerts": [
+                    "🔴 Crítico (Masquerading o Minero): Proceso haciéndose pasar por Windows o minero de criptomonedas activo.",
+                    "🟡 Sospechoso: Ejecutable en carpeta temporal o script PowerShell codificado.",
+                    "🟢 Normal: Procesos legítimos verificados del sistema operativo y aplicaciones estándar."
+                ],
+                "recommendation": "Si observas un proceso sospechoso que no reconoces, finalízalo de inmediato y revisa la carpeta donde reside antes de reiniciar el equipo."
+            },
+            {
+                "id": "ransomware",
+                "title": "9. 🔒 Ransomware & Archivos (Detección Activa & FIM)",
+                "category": "Seguridad & Amenazas",
+                "badge": "ENTROPÍA & INTEGRIDAD FIM",
+                "badge_color": "#dc2626",
+                "target_view": "ransomware",
+                "keywords": "ransomware entropia shannon cifrado masivo lockbit conti blackcat extensiones baseline fim integridad sha256 hashes modificaciones",
+                "purpose": "Detección temprana de ataques de cifrado masivo (Ransomware) y supervisión continua de la integridad de tus archivos personales (File Integrity Monitoring).",
+                "how_it_works": [
+                    "• Entropía de Shannon: Mide matemáticamente la aleatoriedad de los bytes (0 a 8 bits/byte). Los archivos normales rondan ~4.5 bits/byte, mientras que los archivos cifrados por ransomware superan ~7.70 - 7.99 bits/byte.",
+                    "• Detección de Extensiones de Ransomware: Identifica más de 40 extensiones asociadas a familias célebres de ransomware (LockBit, Conti, BlackCat, Akira, Royal, Petya, Crypt, etc.).",
+                    "• Modificación Masiva y Ráfagas: Detecta si en una ventana de pocos minutos se han alterado o creado cientos de archivos a gran velocidad.",
+                    "• Monitor de Integridad (FIM): Genera una 'Línea Base' de hashes criptográficos SHA-256 de tus carpetas personales (Documentos, Escritorio, Descargas). Al verificarla, delata qué archivos han sido MODIFICADOS, ELIMINADOS o CREADOS."
+                ],
+                "how_to_use": [
+                    "1. Para Integridad de Archivos: Pulsa '📌 Generar Línea Base' cuando tu equipo esté limpio. En cualquier momento posterior, pulsa '🔍 Verificar Integridad' para descubrir modificaciones no autorizadas.",
+                    "2. Para Detección de Ransomware: Ajusta la ventana de minutos (ej. 15 min) y pulsa '🔍 Analizar Cifrado Sospechoso'."
+                ],
+                "alerts": [
+                    "🔴 Crítico: Se detectaron archivos con entropía extrema (> 7.7) o extensiones de ransomware en tus carpetas.",
+                    "🟢 Seguro: No se detectan anomalías de cifrado y la línea base de archivos coincide exactamente."
+                ],
+                "recommendation": "Genera una línea base de integridad de tus carpetas de trabajo con frecuencia y mantén copias de seguridad desconectadas (offline) de tus datos más valiosos."
+            },
+            {
+                "id": "hardening",
+                "title": "10. 🛡️ Hidratación & Persistencia del Sistema",
+                "category": "Seguridad & Amenazas",
+                "badge": "BLINDAJE DE WINDOWS",
+                "badge_color": "#059669",
+                "target_view": "hardening",
+                "keywords": "hidratacion hardening persistencia defender antivirus windows update parches smb 445 relay pass the hash run keys startup servicios wmi exportar reporte",
+                "purpose": "Auditar la postura global de seguridad de Windows y descubrir mecanismos ocultos de persistencia que los atacantes instalan para sobrevivir al reinicio del equipo.",
+                "how_it_works": [
+                    "• Estado de Microsoft Defender: Comprueba si el antivirus está activo, si la protección en tiempo real está habilitada o si fue desactivada mediante políticas o modificaciones en el Registro.",
+                    "• Parches de Windows Update: Verifica el estado del servicio de actualizaciones y la presencia de parches de seguridad críticos pendientes.",
+                    "• Puerto SMB (445) y Firmado: Audita si el servicio de compartición de archivos SMB está expuesto y si requiere firma de paquetes para impedir ataques locales de retransmisión (SMB Relay / Pass-the-Hash).",
+                    "• Auditoría de Persistencia Oculta: Rastrea los 5 mecanismos favoritos de persistencia del malware: Claves Run del Registro (HKCU y HKLM en 32 y 64 bits), accesos directos en la carpeta de Inicio (Startup), Servicios no-Windows en ejecución, Tareas Programadas y Consumidores de Eventos WMI (WMI Event Consumers).",
+                    "• Exportación de Reportes Forenses: Permite guardar un reporte consolidado en JSON con fecha y hora en '%APPDATA%\\NetShield\\Reports\\'."
+                ],
+                "how_to_use": [
+                    "1. Haz clic en '🛡️ Hidratación & Sistema'.",
+                    "2. Pulsa '🔍 Analizar Seguridad del Sistema'.",
+                    "3. Examina el Estado Global (Seguro, Advertencia o Crítico) y las tarjetas individuales de Defender, Windows Update, SMB y Persistencia.",
+                    "4. Pulsa '📤 Exportar reporte' si deseas guardar un archivo JSON con la evidencia completa del análisis."
+                ],
+                "alerts": [
+                    "🔴 Crítico: Microsoft Defender desactivado o presencia de consumidores de eventos WMI sospechosos.",
+                    "🟡 Advertencia: Puerto SMB escuchando sin firma obligatoria o parches de seguridad pendientes.",
+                    "🟢 Normal: Antivirus activo, sistema al día y mecanismos de persistencia dentro de la normalidad."
+                ],
+                "recommendation": "Mantén siempre Microsoft Defender activado y actualizado. Si detectas una entrada en el Registro o Tarea Programada que apunta a un archivo desconocido, investiga su procedencia de inmediato."
+            },
+            {
+                "id": "quick_guide",
+                "title": "11. 💡 Rutina Recomendada & Preguntas Frecuentes (FAQ)",
+                "category": "Guía Rápida",
+                "badge": "BUENAS PRÁCTICAS",
+                "badge_color": "#6366f1",
+                "target_view": None,
+                "keywords": "faq preguntas frecuentes rutina semanal que hacer infeccion virus admin permisos consejos mantenimiento",
+                "purpose": "Buenas prácticas y recomendaciones esenciales para mantener tu ordenador limpio, rápido y blindado contra amenazas digitales.",
+                "how_it_works": [
+                    "• Rutina Semanal en 3 Minutos: 1) Ejecuta 'Limpiar Temporales' para recuperar varios gigabytes de espacio. 2) Revisa 'Dispositivos LAN' para cerciorarte de que no hay intrusos en tu Wi-Fi. 3) Ejecuta 'Seguridad & Riesgos' e 'Hidratación' para verificar el estado de tus defensas.",
+                    "• ¿Qué hacer si NetShield detecta una amenaza crítica?: 1) Pulsa '🛑 Cortar Conexión' o 'Finalizar Proceso'. 2) Desconecta el cable de red o apaga el Wi-Fi para cortar el canal de comunicación del atacante. 3) Realiza un escaneo completo con Microsoft Defender o tu antivirus de cabecera.",
+                    "• ¿Por qué algunas funciones requieren permisos de Administrador?: Ciertas llamadas a la API de Windows (como inspeccionar el estado de servicios protegidos, examinar ciertos procesos del sistema o leer claves del registro en HKLM) requieren privilegios elevados para entregar información 100% precisa."
+                ],
+                "how_to_use": [
+                    "Consulta esta sección siempre que tengas dudas sobre el flujo de trabajo recomendado o cómo proceder ante un incidente de seguridad."
+                ],
+                "alerts": [
+                    "💡 Compromiso de Seguridad: NetShield Pro no modifica archivos de tu sistema operativo ni altera tus configuraciones sin tu confirmación explícita."
+                ],
+                "recommendation": "La prevención es la mejor defensa: mantén Windows actualizado, no abras adjuntos de correos sospechosos y audita tu red regularmente con esta herramienta."
+            }
+        ]
+
+        for data in sections:
+            card = ctk.CTkFrame(self.help_scroll_frame, fg_color="#0f172a", corner_radius=10, border_width=1, border_color="#1e293b")
+            card.pack(fill="x", pady=6, padx=6)
+
+            # Barra superior de la tarjeta
+            top_bar = ctk.CTkFrame(card, fg_color="transparent")
+            top_bar.pack(fill="x", padx=14, pady=(12, 6))
+
+            # Lado izquierdo: Badge + Título
+            title_box = ctk.CTkFrame(top_bar, fg_color="transparent")
+            title_box.pack(side="left", fill="x", expand=True)
+
+            badge_frame = ctk.CTkFrame(title_box, fg_color="transparent")
+            badge_frame.pack(anchor="w", pady=(0, 2))
+
+            lbl_badge = ctk.CTkLabel(
+                badge_frame,
+                text=f" {data['badge']} ",
+                font=ctk.CTkFont(size=10, weight="bold"),
+                text_color="#ffffff",
+                fg_color=data["badge_color"],
+                corner_radius=4
+            )
+            lbl_badge.pack(side="left", padx=(0, 8))
+
+            lbl_cat = ctk.CTkLabel(
+                badge_frame,
+                text=f"Categoría: {data['category']}",
+                font=ctk.CTkFont(size=11),
+                text_color="#64748b"
+            )
+            lbl_cat.pack(side="left")
+
+            lbl_title = ctk.CTkLabel(
+                title_box,
+                text=data["title"],
+                font=ctk.CTkFont(size=15, weight="bold"),
+                text_color="#f8fafc"
+            )
+            lbl_title.pack(anchor="w")
+
+            # Lado derecho: Botón de acceso directo a la sección
+            if data.get("target_view"):
+                btn_nav = ctk.CTkButton(
+                    top_bar,
+                    text="🚀 Abrir Sección",
+                    font=ctk.CTkFont(size=12, weight="bold"),
+                    fg_color="#0284c7",
+                    hover_color="#0369a1",
+                    width=135,
+                    height=30,
+                    corner_radius=6,
+                    command=lambda v=data["target_view"]: self.show_view(v)
+                )
+                btn_nav.pack(side="right", padx=(10, 0))
+
+            # Cuerpo de la tarjeta
+            body = ctk.CTkFrame(card, fg_color="transparent")
+            body.pack(fill="x", padx=14, pady=(4, 12))
+
+            # 1. Propósito
+            p_box = ctk.CTkFrame(body, fg_color="#13171f", corner_radius=6)
+            p_box.pack(fill="x", pady=3)
+            ctk.CTkLabel(p_box, text="🎯 Objetivo:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#38bdf8").pack(anchor="w", padx=10, pady=(6, 2))
+            ctk.CTkLabel(p_box, text=data["purpose"], font=ctk.CTkFont(size=12), text_color="#e2e8f0", wraplength=780, justify="left").pack(anchor="w", padx=10, pady=(0, 6))
+
+            # 2. Cómo funciona
+            ctk.CTkLabel(body, text="⚙️ Cómo funciona internamente y qué analiza:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#94a3b8").pack(anchor="w", pady=(8, 2))
+            for line in data["how_it_works"]:
+                ctk.CTkLabel(body, text=line, font=ctk.CTkFont(size=11), text_color="#cbd5e1", wraplength=780, justify="left").pack(anchor="w", padx=8, pady=1)
+
+            # 3. Modo de uso
+            ctk.CTkLabel(body, text="📋 Modo de uso paso a paso:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#94a3b8").pack(anchor="w", pady=(8, 2))
+            for step in data["how_to_use"]:
+                ctk.CTkLabel(body, text=step, font=ctk.CTkFont(size=11), text_color="#cbd5e1", wraplength=780, justify="left").pack(anchor="w", padx=8, pady=1)
+
+            # 4. Interpretación de estados y alertas
+            ctk.CTkLabel(body, text="🚦 Interpretación de estados y semáforos:", font=ctk.CTkFont(size=12, weight="bold"), text_color="#94a3b8").pack(anchor="w", pady=(8, 2))
+            for alert in data["alerts"]:
+                ctk.CTkLabel(body, text=alert, font=ctk.CTkFont(size=11), text_color="#cbd5e1", wraplength=780, justify="left").pack(anchor="w", padx=8, pady=1)
+
+            # 5. Recomendación
+            rec_box = ctk.CTkFrame(body, fg_color="#1e293b", corner_radius=6)
+            rec_box.pack(fill="x", pady=(8, 2))
+            ctk.CTkLabel(rec_box, text="💡 Recomendación de seguridad / mantenimiento:", font=ctk.CTkFont(size=11, weight="bold"), text_color="#38bdf8").pack(anchor="w", padx=10, pady=(6, 2))
+            ctk.CTkLabel(rec_box, text=data["recommendation"], font=ctk.CTkFont(size=11), text_color="#f1f5f9", wraplength=780, justify="left").pack(anchor="w", padx=10, pady=(0, 6))
+
+            # Guardar referencia para filtrado interactivo
+            self.help_card_widgets.append({
+                "widget": card,
+                "data": data
+            })
+
+    def _filter_help_cards(self):
+        """Filtra las tarjetas de ayuda en tiempo real según el texto de búsqueda y la categoría seleccionada."""
+        query = self.help_search_var.get().strip().lower()
+        selected_cat = self.help_category_var.get()
+
+        visible_count = 0
+        for item in self.help_card_widgets:
+            card_widget = item["widget"]
+            card_data = item["data"]
+
+            # Comprobación de categoría
+            cat_match = (selected_cat == "Todas" or card_data["category"] == selected_cat)
+
+            # Comprobación de texto de búsqueda
+            text_to_search = " ".join([
+                card_data["title"],
+                card_data["category"],
+                card_data["purpose"],
+                " ".join(card_data["how_it_works"]),
+                " ".join(card_data["how_to_use"]),
+                " ".join(card_data["alerts"]),
+                card_data["recommendation"],
+                card_data.get("keywords", "")
+            ]).lower()
+
+            search_match = (not query) or (query in text_to_search)
+
+            if cat_match and search_match:
+                card_widget.pack(fill="x", pady=6, padx=6)
+                visible_count += 1
+            else:
+                card_widget.pack_forget()
+
+        if visible_count == 0:
+            self.help_empty_label.pack(pady=40)
+        else:
+            self.help_empty_label.pack_forget()
 
 
 def launch():

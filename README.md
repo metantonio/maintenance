@@ -98,6 +98,18 @@ Puedes ejecutar la aplicación de tres formas:
 - **Persistencia**: Run keys (HKCU/HKLM, vistas 32/64), carpeta Startup, servicios no-Windows en ejecución, tareas programadas, y **WMI event consumers** (técnica de persistencia de atacantes).
 - **Pestaña "🛡️ Hidratación & Sistema"**: Estado global (SEGURO/ADVERTENCIA/CRÍTICO) + detalle de cada mecanismo.
 
+### 9. 📖 Centro de Ayuda & Guía del Usuario
+- **Documentación Integrada e Interactiva**: Sección dedicada en la barra lateral con la explicación completa de cada uno de los 10 módulos de la aplicación.
+- **Detalle Estructurado por Sección**:
+  - 🎯 **Objetivo**: Propósito del módulo y qué problema resuelve.
+  - ⚙️ **Cómo Funciona & Qué Analiza**: Llamadas al sistema (Win32 API, netsh, SendARP, Shannon entropy, etc.) y métricas analizadas.
+  - 📋 **Modo de Uso Paso a Paso**: Instrucciones claras de qué botones pulsar y cómo interactuar.
+  - 🚦 **Interpretación de Estados & Alertas**: Significado de semáforos verde/amarillo/rojo y umbrales.
+  - 💡 **Recomendación**: Consejos de seguridad y buenas prácticas de mantenimiento.
+- **Buscador en Tiempo Real**: Campo de búsqueda que filtra dinámicamente las tarjetas según palabras clave (ej. *dns*, *wifi*, *ransomware*, *temporales*, *puertos*, *svchost*).
+- **Filtro por Áreas**: Botones segmentados para filtrar entre *Redes & Wi-Fi*, *Seguridad & Amenazas*, *Disco & Sistema* o *Guía Rápida*.
+- **Navegación Directa**: Cada tarjeta incluye el botón **"🚀 Abrir Sección"** para saltar directamente a la funcionalidad deseada con un solo clic.
+
 ---
 
 ## 📂 Estructura del Proyecto
