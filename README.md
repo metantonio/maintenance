@@ -71,12 +71,32 @@ Puedes ejecutar la aplicación de tres formas:
 - **Gestión Inmediata**: Botón para forzar el cierre (`Finalizar Proceso`) y abrir la carpeta del binario en el Explorador.
 
 ### 8. 📡 Detección de Fuga de Datos & Tráfico Espía (Anti-Exfiltración)
-- **Inspección de Conexiones Salientes en Tiempo Real**: Audita sockets activos hacia internet vinculándolos con su proceso emisor exacto (`.exe`, PID, memoria y ruta).
+- **Inspección de Conexiones Salientes en Tiempo Real**: Audita sockets **TCP y UDP** activos hacia internet vinculándolos con su proceso emisor exacto (`.exe`, PID, memoria y ruta). Detecta exfiltración por **DNS (UDP 53)** a servidores públicos desconocidos, **hostnames con patrón DGA**, y conexiones a dominios de exfiltración conocidos (C2 / webhooks / hosting), además de **SMB (445)** saliente.
 - **Abuso de Procesos del Sistema (LOLBins)**: Alerta si herramientas como `powershell.exe`, `cmd.exe`, `rundll32.exe` o `certutil.exe` están comunicándose directamente hacia una IP pública externa.
 - **Canales de Exfiltración Habituales**: Detección de conexiones no oficiales a APIs de bots de Telegram o Webhooks de Discord (técnica de InfoStealers como RedLine, Lumma o AgentTesla).
 - **Puertos de Malware y RATs**: Identificación de tráfico saliente hacia puertos típicos de backdoors y troyanos (1337, 4444, 5555, 6667, 8888, etc.).
 - **Alerta de Acceso a Credenciales**: Detección de procesos no autorizados accediendo a bases de datos de contraseñas de navegadores (Chrome/Edge/Firefox) o carteras cripto.
 - **Botón "🛑 Cortar Conexión"**: Finaliza inmediatamente el proceso espía para cerrar el socket e impedir la subida de datos sensibles.
+
+### 8.1. 🔒 Detección de Cifrado Activo (Ransomware)
+- **Entropía de Shannon**: Mide la aleatoriedad de los archivos. Un documento es ~4.5 bits/byte; un archivo cifrado es ~7.7–7.99 bits/byte.
+- **Extensiones de Ransomware**: Detecta extensiones de familias conocidas (LockBit, Conti, Royal, Magma, Babel, Akira, Petya, Nox, Ransack, Shadow, Nohome…).
+- **Modificación Masiva**: Detecta carpetas donde muchos archivos son modificados en pocos minutos (el cifrador corre en bucle).
+- **Tasa de Creación Anómala**: Detecta ráfagas de creación de archivos (borradas de datos nuevos).
+- **Pestaña "🔒 Ransomware & Archivos"**: Analiza con ventana configurable (5–120 min), muestra archivos señalados con su entropía y permite abrirlos.
+
+### 8.2. 📌 Baseline de Integridad (FIM)
+- **Genera baseline** de hashes SHA-256 de tus carpetas (Desktop, Documents, Downloads, Pictures, Videos, Music, y la carpeta de la app).
+- **Verifica** la baseline: detecta archivos **MODIFICADOS**, **ELIMINADOS** o **NUEVOS** (huella de un cifrador/ataque).
+- **Monitorización continua**: Hilo en segundo plano que comprueba la tasa de creación/modificación y el estado de Defender cada X minutos (5–30 min), con alerta y log.
+- **Exportación de reporte**: Guarda un JSON con todos los resultados (ransomware, integridad, hidratación, log) en `%APPDATA%\NetShield\Reports\`.
+
+### 8.3. 🛡️ Hidratación & Persistencia del Sistema
+- **Defender**: Estado de protección en tiempo real, si está deshabilitado (por registro o política).
+- **Windows Update**: Parches pendientes de seguridad (alerta si hay muchos).
+- **SMB (445)**: Si SMB está escuchando y parámetros del servidor (SMB sin firma permite SMB Relay / pass-the-hash en red local).
+- **Persistencia**: Run keys (HKCU/HKLM, vistas 32/64), carpeta Startup, servicios no-Windows en ejecución, tareas programadas, y **WMI event consumers** (técnica de persistencia de atacantes).
+- **Pestaña "🛡️ Hidratación & Sistema"**: Estado global (SEGURO/ADVERTENCIA/CRÍTICO) + detalle de cada mecanismo.
 
 ---
 
@@ -88,12 +108,15 @@ maintnance/
 │   ├── oui_database.py          # Base de datos OUI de fabricantes MAC
 │   ├── wifi_analyzer.py         # Análisis de Wi-Fi, señal y red
 │   ├── network_scanner.py       # Escaneo ARP multihilo de dispositivos LAN
-│   ├── security_auditor.py      # Detección de ARP spoofing, DNS y puertos
-│   ├── data_leak_detector.py    # Detección de fuga de datos y tráfico espía
+│   ├── security_auditor.py      # Detección de ARP spoofing, DNS (multi-dominio) y puertos
+│   ├── data_leak_detector.py    # Fuga de datos (TCP/UDP, DNS, C2, SMB, DGA)
 │   ├── disk_tracker.py          # Rastreo de archivos creados en 7 días
 │   ├── temp_cleaner.py          # Limpiador seguro de temporales y dumps
 │   ├── venv_manager.py          # Gestor y limpiador de entornos virtuales
-│   └── process_auditor.py       # Auditor de procesos activos sospechosos
+│   ├── process_auditor.py       # Auditor de procesos activos sospechosos
+│   ├── ransomware_detector.py   # Cifrado activo (entropía, extensión, masiva)
+│   ├── integrity_monitor.py     # Baseline de integridad (SHA-256) + verificación
+│   └── system_harden.py         # Defender, parches, persistencia, SMB
 ├── gui/
 │   └── app.py                   # Interfaz gráfica moderna (CustomTkinter)
 ├── dist/

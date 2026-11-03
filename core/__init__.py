@@ -10,6 +10,9 @@ from core.temp_cleaner import TempCleaner
 from core.venv_manager import VenvManager
 from core.process_auditor import ProcessAuditor
 from core.data_leak_detector import DataLeakDetector
+from core.ransomware_detector import RansomwareDetector
+from core.integrity_monitor import IntegrityMonitor
+from core.system_harden import SystemHardener
 
 __all__ = [
     "WiFiAnalyzer",
@@ -19,5 +22,8 @@ __all__ = [
     "TempCleaner",
     "VenvManager",
     "ProcessAuditor",
-    "DataLeakDetector"
+    "DataLeakDetector",
+    "RansomwareDetector",
+    "IntegrityMonitor",
+    "SystemHardener"
 ]

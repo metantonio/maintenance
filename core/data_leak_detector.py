@@ -49,8 +49,52 @@ class DataLeakDetector:
         6666: "IRC Botnet C2",
         6667: "IRC Botnet C2",
         8888: "Proxy / C2 no estándar",
-        9999: "Backdoor Listener"
+        9999: "Backdoor Listener",
+        445: "SMB remoto (acceso a archivos / exfiltración local)"
     }
+
+    # DNS públicos conocidos (no es exfiltración si es uno de estos)
+    KNOWN_DNS_PROVIDERS = {
+        "8.8.8.8", "8.8.4.4",
+        "1.1.1.1", "1.0.0.1",
+        "9.9.9.9", "149.112.112.112",
+        "208.67.222.222", "208.67.220.220",
+    }
+
+    # Dominios conocidos de exfiltración / C2 / hosting de payloads
+    C2_DOMAINS = (
+        "telegram", "t.me",
+        "discord", "discord.gg",
+        "pastebin", "gist",
+        "file.io", "tmp.live", "transfer.sh", "0x0.st",
+        "anonfile",
+    )
+
+    def _is_dga_like(self, host: str) -> bool:
+        """
+        Heurística DGA (dominios generados automáticamente):
+          * TLD con dígitos o TLD raro (muy corto / muy largo)
+          * Etiquetas de subdominio con patrón de DGA: mezcla de letras y
+            dígitos (ej. xyz99, a1b2c3d4), típicos de dominios generados.
+        """
+        if not host:
+            return False
+        host = host.split(":")[0].lower()
+        labels = [l for l in host.split(".") if l]
+        if len(labels) < 2:
+            return False
+        tld = labels[-1]
+        # 1) TLD con dígitos o TLD raro
+        if any(c.isdigit() for c in tld) or len(tld) < 2 or len(tld) > 12:
+            return True
+        # 2) Etiquetas de subdominio con patrón de DGA (mezcla letras+dígitos)
+        for label in labels[:-1]:
+            if not label:
+                continue
+            if any(c.isdigit() for c in label) and any(c.isalpha() for c in label):
+                if len(label) >= 8 or label[-1].isdigit():
+                    return True
+        return False
 
     # Aplicaciones comunes legítimas conocidas de navegación o desarrollo
     KNOWN_TRUSTED_EXES = {
@@ -152,31 +196,40 @@ class DataLeakDetector:
         warning_count = 0
         normal_count = 0
 
-        # Obtener todas las conexiones inet
+        # Obtener conexiones TCP y UDP (UDP: el estado no aplica)
         try:
-            connections = psutil.net_connections(kind='inet')
+            tcp_conns = psutil.net_connections(kind='tcp')
         except Exception:
-            connections = []
+            tcp_conns = []
+        try:
+            udp_conns = psutil.net_connections(kind='udp')
+        except Exception:
+            udp_conns = []
 
-        # Filtrar solo conexiones establecidas o activas hacia el exterior
+        # Filtrar conexiones hacia el exterior (UDP sin filtro de estado)
         valid_conns = []
         remote_ips_to_resolve = []
-        for conn in connections:
-            if conn.status in ('ESTABLISHED', 'SYN_SENT'):
-                if conn.raddr:
-                    r_ip = conn.raddr.ip
-                    if not self.is_private_or_local_ip(r_ip):
-                        valid_conns.append(conn)
-                        remote_ips_to_resolve.append(r_ip)
+        for conn in tcp_conns:
+            if conn.status in ('ESTABLISHED', 'SYN_SENT') and conn.raddr:
+                r_ip = conn.raddr.ip
+                if not self.is_private_or_local_ip(r_ip):
+                    valid_conns.append((conn, "tcp"))
+                    remote_ips_to_resolve.append(r_ip)
+        for conn in udp_conns:
+            if conn.raddr:
+                r_ip = conn.raddr.ip
+                if not self.is_private_or_local_ip(r_ip):
+                    valid_conns.append((conn, "udp"))
+                    remote_ips_to_resolve.append(r_ip)
 
         # Resolver todas las IPs en paralelo ultra rápido
         resolved_hosts = self.resolve_remote_hosts_parallel(remote_ips_to_resolve)
 
-        # Agrupar conexiones por PID
-        pid_conns: Dict[int, List[Any]] = {}
-        for conn in valid_conns:
+        # Agrupar conexiones por PID (con protocolo)
+        pid_conns: Dict[int, List[tuple]] = {}
+        for conn, proto in valid_conns:
             pid = conn.pid or 0
-            pid_conns.setdefault(pid, []).append(conn)
+            pid_conns.setdefault(pid, []).append((conn, proto))
 
         # Analizar cada proceso con conexiones salientes
         for pid, conns in pid_conns.items():
@@ -218,11 +271,11 @@ class DataLeakDetector:
             if ps_proc and name_lower not in ("chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe"):
                 opened_sensitive = self.check_process_sensitive_files(ps_proc)
 
-            for conn in conns:
+            for conn, proto in conns:
                 remote_ip = conn.raddr.ip
                 remote_port = conn.raddr.port
                 local_port = conn.laddr.port if conn.laddr else 0
-                state = conn.status
+                state = conn.status or (proto.upper() if proto else "UNKNOWN")
 
                 remote_host = resolved_hosts.get(remote_ip, remote_ip)
                 host_lower = remote_host.lower()
@@ -310,6 +363,37 @@ class DataLeakDetector:
                         risk_color = "#f59e0b"
                     reasons.append(f"Transmisión HTTP sin cifrar (puerto 80) hacia {remote_ip}. Los datos viajan en texto plano.")
 
+                # REGLA 9: DNS por UDP 53 a servidor público desconocido (exfil por DNS / DGA)
+                if (proto == "udp" and remote_port == 53
+                        and remote_ip not in self.KNOWN_DNS_PROVIDERS
+                        and (name_lower not in self.KNOWN_TRUSTED_EXES or self._is_dga_like(host_lower))):
+                    if risk_level == "NORMAL":
+                        risk_level = "SOSPECHOSO"
+                        risk_color = "#f59e0b"
+                    reasons.append(
+                        f"DNS (UDP 53) a servidor público desconocido ({remote_ip}). "
+                        "Posible exfiltración por DNS (DGA / beacon)."
+                    )
+
+                # REGLA 10: Hostname con patrón DGA
+                if self._is_dga_like(host_lower) and risk_level == "NORMAL":
+                    risk_level = "SOSPECHOSO"
+                    risk_color = "#f59e0b"
+                    reasons.append(
+                        f"Hostname con patrón DGA (dominio generada automáticamente): "
+                        f"{host_lower[:40]}."
+                    )
+
+                # REGLA 11: Conexión a dominios de exfiltración conocidos (C2 / webhooks / hosting)
+                if risk_level == "NORMAL" and any(domain in host_lower for domain in self.C2_DOMAINS):
+                    if name_lower not in self.KNOWN_TRUSTED_EXES:
+                        risk_level = "CRÍTICO"
+                        risk_color = "#ef4444"
+                        reasons.append(
+                            f"Conexión a dominio de exfiltración conocida: {host_lower[:40]} "
+                            "(C2 / webhook / hosting de payloads)."
+                        )
+
                 # Contabilizar
                 if risk_level == "CRÍTICO":
                     critical_count += 1
@@ -332,6 +416,7 @@ class DataLeakDetector:
                     "remote_port": remote_port,
                     "remote_host": remote_host,
                     "connection_state": state,
+                    "protocol": proto,
                     "risk_level": risk_level,
                     "risk_color": risk_color,
                     "reasons": reasons,

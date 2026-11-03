@@ -5,9 +5,12 @@ Herramienta de Auditoría Wi-Fi, Seguridad de Red y Mantenimiento de Disco.
 
 import os
 import sys
+import json
+import time
 import threading
 import tkinter as tk
 from tkinter import messagebox
+from datetime import datetime
 import customtkinter as ctk
 from typing import Dict, Any, List, Optional
 
@@ -19,6 +22,9 @@ from core.temp_cleaner import TempCleaner
 from core.venv_manager import VenvManager
 from core.process_auditor import ProcessAuditor
 from core.data_leak_detector import DataLeakDetector
+from core.ransomware_detector import RansomwareDetector
+from core.integrity_monitor import IntegrityMonitor
+from core.system_harden import SystemHardener
 
 
 class ModernApp(ctk.CTk):
@@ -45,6 +51,11 @@ class ModernApp(ctk.CTk):
         self.venv_manager = VenvManager()
         self.process_auditor = ProcessAuditor()
 
+        # Seguridad proactiva
+        self.ransomware_detector = RansomwareDetector()
+        self.integrity_monitor = IntegrityMonitor()
+        self.system_hardener = SystemHardener()
+
         # Estados de datos en memoria
         self.cached_wifi_data = None
         self.cached_devices = []
@@ -54,8 +65,16 @@ class ModernApp(ctk.CTk):
         self.cached_temp_scan = None
         self.cached_venvs = []
         self.cached_processes = []
+        self.cached_ransomware = None
+        self.cached_integrity = None
+        self.cached_hardening = None
         self.leak_filter_var = None
         self.venv_checkboxes = {}
+
+        # Monitorización continua
+        self.monitor_stop = threading.Event()
+        self.monitor_thread = None
+        self.monitor_events: List[str] = []
 
         # Control de hilos
         self.active_scan_thread = None
@@ -98,6 +117,8 @@ class ModernApp(ctk.CTk):
             ("cleaner", "🧹  Limpiar Temporales"),
             ("venvs", "🐍  Entornos Virtuales"),
             ("processes", "⚠️  Procesos Activos"),
+            ("ransomware", "🔒  Ransomware & Archivos"),
+            ("hardening", "🛡️  Hidratación & Sistema"),
         ]
 
         for idx, (view_id, text) in enumerate(views, start=1):
@@ -119,7 +140,7 @@ class ModernApp(ctk.CTk):
         # Versión e información inferior
         self.version_label = ctk.CTkLabel(
             self.sidebar_frame,
-            text="v1.1.0 • Python 3.14\nProtección Local Activa",
+            text="v2.0.0 • Python 3.14\nProtección Local Activa",
             font=ctk.CTkFont(size=11),
             text_color="#64748b"
         )
@@ -140,7 +161,9 @@ class ModernApp(ctk.CTk):
             "disk": self._create_disk_view(),
             "cleaner": self._create_cleaner_view(),
             "venvs": self._create_venvs_view(),
-            "processes": self._create_processes_view()
+            "processes": self._create_processes_view(),
+            "ransomware": self._create_ransomware_view(),
+            "hardening": self._create_hardening_view()
         }
 
     def show_view(self, view_id: str):
@@ -1768,6 +1791,465 @@ class ModernApp(ctk.CTk):
             self.start_processes_scan()
         else:
             messagebox.showerror("Error al Finalizar", res["message"])
+
+    def _severity_color(self, sev: str) -> str:
+        return {"CRÍTICO": "#ef4444", "ADVERTENCIA": "#f59e0b", "NORMAL": "#00c851"}.get(sev, "#f8fafc")
+
+    # =========================================================================
+    # VISTA: RANSOMWARE & ARCHIVOS
+    # =========================================================================
+    def _create_ransomware_view(self) -> ctk.CTkFrame:
+        frame = ctk.CTkFrame(self.content_container, fg_color="transparent")
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(3, weight=1)
+        frame.grid_rowconfigure(4, weight=1)
+
+        # Encabezado
+        header_box = ctk.CTkFrame(frame, fg_color="transparent")
+        header_box.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+
+        title = ctk.CTkLabel(
+            header_box,
+            text="🔒 Ransomware & Protección de Archivos",
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color="#f8fafc"
+        )
+        title.pack(side="left")
+
+        btn_export = ctk.CTkButton(
+            header_box,
+            text="📤 Exportar reporte",
+            font=ctk.CTkFont(size=12),
+            fg_color="#1e293b",
+            hover_color="#334155",
+            width=170,
+            command=self._export_report
+        )
+        btn_export.pack(side="right")
+
+        # Banner global
+        self.ransom_banner_label = ctk.CTkLabel(
+            frame,
+            text="Analiza archivos recientes en busca de patrones de cifrado (entropía, extensión, modificación masiva) y protege tus datos con una baseline de integridad.",
+            font=ctk.CTkFont(size=13),
+            justify="left",
+            anchor="w",
+            text_color="#94a3b8",
+            wraplength=900
+        )
+        self.ransom_banner_label.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 10))
+
+        # Fila de controles
+        controls = ctk.CTkFrame(frame, fg_color="#1e293b", corner_radius=8)
+        controls.grid(row=2, column=0, sticky="ew", pady=(0, 6))
+
+        # Escaneo de cripto
+        ctk.CTkLabel(controls, text="Ventana:", font=ctk.CTkFont(size=12), text_color="#94a3b8").pack(side="left", padx=(12, 2), pady=8)
+        self.ransom_window_menu = ctk.CTkOptionMenu(
+            controls, values=["5 min", "15 min", "30 min", "60 min", "120 min"],
+            width=80, fg_color="#1e293b", button_color="#0284c7"
+        )
+        self.ransom_window_menu.set("60 min")
+        self.ransom_window_menu.pack(side="left", padx=(0, 10))
+
+        self.ransom_scan_btn = ctk.CTkButton(
+            controls, text="🔍 Analizar patrón de cifrado",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#0284c7", hover_color="#0369a1", width=210,
+            command=self.start_ransomware_scan
+        )
+        self.ransom_scan_btn.pack(side="left", padx=(0, 14))
+
+        ctk.CTkLabel(controls, text="Integridad:", font=ctk.CTkFont(size=12), text_color="#94a3b8").pack(side="left", padx=(0, 2))
+        btn_base = ctk.CTkButton(
+            controls, text="📌 Generar baseline",
+            font=ctk.CTkFont(size=12),
+            fg_color="#1e293b", hover_color="#334155", width=155,
+            command=self._generate_baseline
+        )
+        btn_base.pack(side="left", padx=(0, 8))
+        btn_verify = ctk.CTkButton(
+            controls, text="✅ Verificar",
+            font=ctk.CTkFont(size=12),
+            fg_color="#1e293b", hover_color="#334155", width=110,
+            command=self._verify_baseline
+        )
+        btn_verify.pack(side="left")
+
+        # Scroll de resultados de escaneo de cripto
+        self.ransom_scroll = ctk.CTkScrollableFrame(
+            frame, fg_color="#13171f", corner_radius=12, border_width=1, border_color="#1e293b",
+            label_text="🔍 Resultados: patrón de cifrado (entropía, extensión, masiva)"
+        )
+        self.ransom_scroll.grid(row=3, column=0, sticky="nsew", padx=6, pady=2)
+
+        # Scroll de resultados de integridad
+        self.integrity_scroll = ctk.CTkScrollableFrame(
+            frame, fg_color="#13171f", corner_radius=12, border_width=1, border_color="#1e293b",
+            label_text="📌 Resultados: integridad (baseline)"
+        )
+        self.integrity_scroll.grid(row=4, column=0, sticky="nsew", padx=6, pady=2)
+
+        # Monitorización continua
+        mon_box = ctk.CTkFrame(frame, fg_color="#13171f", corner_radius=8, border_width=1, border_color="#1e293b")
+        mon_box.grid(row=5, column=0, sticky="ew", pady=(6, 0))
+        mon_box.grid_columnconfigure(0, weight=1)
+
+        mon_top = ctk.CTkFrame(mon_box, fg_color="transparent")
+        mon_top.grid(row=0, column=0, sticky="ew", padx=12, pady=(8, 4))
+
+        self.monitor_btn = ctk.CTkButton(
+            mon_top, text="👁️ Iniciar monitorización",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#0284c7", hover_color="#0369a1", width=210,
+            command=self._toggle_monitor
+        )
+        self.monitor_btn.pack(side="left")
+
+        ctk.CTkLabel(mon_top, text="Intervalo:", font=ctk.CTkFont(size=12), text_color="#94a3b8").pack(side="left", padx=(10, 4))
+        self.monitor_interval_menu = ctk.CTkOptionMenu(
+            mon_top, values=["5", "10", "15", "30"], width=50,
+            fg_color="#1e293b", button_color="#0284c7"
+        )
+        self.monitor_interval_menu.set("5")
+        self.monitor_interval_menu.pack(side="left", padx=(0, 10))
+
+        self.monitor_status_label = ctk.CTkLabel(
+            mon_top, text="Monitorización: apagada",
+            font=ctk.CTkFont(size=12), text_color="#64748b"
+        )
+        self.monitor_status_label.pack(side="left")
+
+        self.monitor_log = ctk.CTkTextbox(
+            mon_box, width=55, height=4,
+            fg_color="#0f172a", corner_radius=6,
+            font=ctk.CTkFont(size=10),
+            bg_color="#0a0d14"
+        )
+        self.monitor_log.insert("1.0", "Registro de eventos del monitor de integridad.\n")
+        self.monitor_log.configure(state="disabled")
+        self.monitor_log.grid(row=1, column=0, sticky="ew", padx=12, pady=(4, 8))
+
+        return frame
+
+    def start_ransomware_scan(self):
+        """Inicia el análisis de patrón de cifrado en segundo plano."""
+        window_map = {"5 min": 5, "15 min": 15, "30 min": 30, "60 min": 60, "120 min": 120}
+        window_min = window_map.get(self.ransom_window_menu.get(), 60)
+        self.ransom_scan_btn.configure(state="disabled", text="⏳ Analizando...")
+
+        def worker():
+            result = self.ransomware_detector.scan(window_min=window_min)
+            self.cached_ransomware = result
+            self.after(0, lambda: self._render_ransomware_results(result))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _render_ransomware_results(self, result: Dict[str, Any]):
+        for widget in self.ransom_scroll.winfo_children():
+            widget.destroy()
+
+        color = self._severity_color(result["severity"])
+        ctk.CTkLabel(
+            self.ransom_scroll, text=result["summary"], font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=color, wraplength=800, justify="left"
+        ).pack(fill="x", padx=12, pady=(8, 4))
+
+        for d in result.get("details", []):
+            ctk.CTkLabel(self.ransom_scroll, text=f"• {d}", font=ctk.CTkFont(size=11),
+                         text_color="#cbd5e1", wraplength=800, justify="left").pack(anchor="w", padx=14, pady=1)
+
+        if result.get("ransomware_ext_files"):
+            ctk.CTkLabel(self.ransom_scroll, text=f"🔴 Extensiones de ransomware ({len(result['ransomware_ext_files'])})",
+                         font=ctk.CTkFont(size=12, weight="bold"), text_color="#ef4444").pack(anchor="w", padx=14, pady=(8, 2))
+            for f in result["ransomware_ext_files"][:50]:
+                self._add_file_card(self.ransom_scroll, f, "#ef4444")
+
+        if result.get("high_entropy_files"):
+            ctk.CTkLabel(self.ransom_scroll, text=f"🟠 Entropía alta ({len(result['high_entropy_files'])})",
+                         font=ctk.CTkFont(size=12, weight="bold"), text_color="#f59e0b").pack(anchor="w", padx=14, pady=(6, 2))
+            for f in result["high_entropy_files"][:50]:
+                color = "#ef4444" if (f.get("entropy") or 0) >= 7.85 else "#f59e0b"
+                self._add_file_card(self.ransom_scroll, f, color)
+
+        if result.get("mass_modification"):
+            ctk.CTkLabel(self.ransom_scroll, text=f"🟡 Modificación masiva ({len(result['mass_modification'])} carpeta(s))",
+                         font=ctk.CTkFont(size=12, weight="bold"), text_color="#f59e0b").pack(anchor="w", padx=14, pady=(8, 2))
+            for m in result["mass_modification"][:20]:
+                ctk.CTkLabel(self.ransom_scroll,
+                             text=f"{m['folder']} — {m['total']} archivo(s) en {result['window_min']} min",
+                             font=ctk.CTkFont(size=11), text_color="#f59e0b", wraplength=800, justify="left"
+                             ).pack(anchor="w", padx=14, pady=1)
+
+    def _add_file_card(self, parent, item, risk_color="#ef4444"):
+        card = ctk.CTkFrame(parent, fg_color="#0f172a", corner_radius=6)
+        card.pack(fill="x", pady=2, padx=8)
+        ctk.CTkLabel(
+            card, text=f"• {item.get('name', '')}  [{item.get('extension', '')}]",
+            font=ctk.CTkFont(size=11), text_color=risk_color, anchor="w"
+        ).pack(side="left", padx=10, pady=4)
+        ctk.CTkLabel(
+            card, text=item.get("size_formatted", ""),
+            font=ctk.CTkFont(size=11), text_color="#f8fafc", anchor="w"
+        ).pack(side="left", padx=4, pady=4)
+        if item.get("entropy") is not None:
+            ctk.CTkLabel(card, text=f"entropía {item['entropy']:.2f}", font=ctk.CTkFont(size=10),
+                         text_color="#cbd5e1", anchor="w").pack(side="left", padx=(4, 0), pady=4)
+        btn = ctk.CTkButton(card, text="📂", width=40, height=24, font=ctk.CTkFont(size=11),
+                            fg_color="#1e293b", hover_color="#334155",
+                            command=lambda p=item.get("path"): self.disk_tracker.open_in_explorer(p))
+        btn.pack(side="right", padx=10, pady=4)
+
+    def _generate_baseline(self):
+        self.ransom_banner_label.configure(text="Generando baseline de hashes... (puede tardar un rato)",
+                                           text_color="#38bdf8")
+        def worker():
+            res = self.integrity_monitor.generate_baseline()
+            self.after(0, lambda: self._show_baseline_result(res, is_gen=True))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _verify_baseline(self):
+        self.ransom_banner_label.configure(text="Verificando integridad...", text_color="#38bdf8")
+        def worker():
+            res = self.integrity_monitor.verify_baseline()
+            self.after(0, lambda: self._show_baseline_result(res, is_gen=False))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_baseline_result(self, res: Dict[str, Any], is_gen: bool):
+        color = "#00c851" if res.get("success") else "#ef4444"
+        self.ransom_banner_label.configure(text=res.get("summary", res.get("message", "Hecho")),
+                                           text_color=color)
+        self._render_integrity_results(res)
+
+    def _render_integrity_results(self, res: Dict[str, Any]):
+        for widget in self.integrity_scroll.winfo_children():
+            widget.destroy()
+        if not res.get("success"):
+            ctk.CTkLabel(self.integrity_scroll, text=res.get("error", "Error"),
+                         font=ctk.CTkFont(size=12), text_color="#ef4444").pack(pady=30)
+            return
+        if "changed" not in res and "deleted" not in res:
+            ctk.CTkLabel(self.integrity_scroll, text=f"✅ {res.get('message', 'Baseline generada')}",
+                         font=ctk.CTkFont(size=12, weight="bold"), text_color="#00c851").pack(fill="x", padx=14)
+            return
+        ctk.CTkLabel(
+            self.integrity_scroll, text=res.get("summary", ""),
+            font=ctk.CTkFont(size=12, weight="bold"), text_color=self._severity_color(res.get("severity", "NORMAL")),
+            wraplength=800, justify="left"
+        ).pack(anchor="w", padx=14, pady=8)
+        for label, color, items in [
+            ("🔴 MODIFICADOS", "#ef4444", res.get("changed", [])),
+            ("🔴 ELIMINADOS", "#ef4444", res.get("deleted", [])),
+            ("🟠 NUEVOS", "#f59e0b", res.get("new_files", [])),
+        ]:
+            if items:
+                ctk.CTkLabel(self.integrity_scroll, text=f"{label} ({len(items)})",
+                             font=ctk.CTkFont(size=12, weight="bold"), text_color=color).pack(anchor="w", padx=14, pady=(4, 2))
+                for f in items[:50]:
+                    self._add_integrity_file_card(self.integrity_scroll, f, color)
+
+    def _add_integrity_file_card(self, parent, item, color):
+        ctk.CTkLabel(
+            parent, text=item.get("path", "")[:80], font=ctk.CTkFont(size=11),
+            text_color=color, anchor="w"
+        ).pack(anchor="w", padx=14, pady=2)
+
+    # =========================================================================
+    # MONITORIZACIÓN CONTINUA
+    # =========================================================================
+    def _toggle_monitor(self):
+        if self.monitor_thread is not None and self.monitor_thread.is_alive():
+            self.monitor_stop.set()
+            self.monitor_btn.configure(text="👁️ Iniciar monitorización", fg_color="#0284c7")
+            self.monitor_status_label.configure(text="Monitorización: apagada", text_color="#64748b")
+        else:
+            self.monitor_stop.clear()
+            self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
+            self.monitor_thread.start()
+            self.monitor_btn.configure(text="🛑 Detener monitorización", fg_color="#dc2626")
+            self.monitor_status_label.configure(text="Monitorización: activa", text_color="#00c851")
+
+    def _monitor_loop(self):
+        while not self.monitor_stop.is_set():
+            try:
+                interval_min = int(self.monitor_interval_menu.get())
+            except Exception:
+                interval_min = 5
+            try:
+                rate = self.ransomware_detector.quick_creation_rate(window_min=interval_min)
+                defender = self.system_hardener.check_defender()
+            except Exception:
+                rate, defender = {"created": 0, "modified": 0, "suspicious": False}, {"status": "ERROR"}
+            alert = bool(rate.get("suspicious")) or defender["status"] == "CRÍTICO"
+            msg = (
+                f"[{time.strftime('%H:%M:%S')}] "
+                + ("⚠️ ALERTA: " if alert else "✅ OK: ")
+                + f"creaciones={rate.get('created')}, modificados={rate.get('modified')}, "
+                + f"defender={defender['status']}"
+            )
+            self.monitor_events.append(msg)
+            self.after(0, lambda m=msg: self._monitor_log_append(m))
+            self.after(0, lambda a=alert: self.monitor_status_label.configure(
+                text="Monitorización: activa" + (" (alerta)" if a else ""),
+                text_color="#f59e0b" if a else "#00c851"))
+            time.sleep(interval_min * 60)
+        self.after(0, lambda: self.monitor_btn.configure(text="👁️ Iniciar monitorización", fg_color="#0284c7"))
+        self.after(0, lambda: self.monitor_status_label.configure(text="Monitorización: apagada", text_color="#64748b"))
+
+    def _monitor_log_append(self, msg):
+        self.monitor_log.configure(state="normal")
+        self.monitor_log.insert("end", msg + "\n")
+        self.monitor_log.see("end")
+        self.monitor_log.configure(state="disabled")
+
+    # =========================================================================
+    # VISTA: HIDRATAción & SISTEMA
+    # =========================================================================
+    def _create_hardening_view(self) -> ctk.CTkFrame:
+        frame = ctk.CTkFrame(self.content_container, fg_color="transparent")
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(2, weight=1)
+
+        header_box = ctk.CTkFrame(frame, fg_color="transparent")
+        header_box.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+
+        title = ctk.CTkLabel(
+            header_box,
+            text="🛡️ Hidratación & Sistema (Defensas + Persistencia)",
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color="#f8fafc"
+        )
+        title.pack(side="left")
+
+        self.harden_btn = ctk.CTkButton(
+            header_box, text="🛡️ Analizar sistema", font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#0284c7", hover_color="#0369a1", width=170,
+            command=self.start_harden_scan
+        )
+        self.harden_btn.pack(side="right")
+
+        btn_export = ctk.CTkButton(
+            header_box, text="📤 Exportar reporte", font=ctk.CTkFont(size=12),
+            fg_color="#1e293b", hover_color="#334155", width=170,
+            command=self._export_report
+        )
+        btn_export.pack(side="right", padx=(6, 0))
+
+        self.harden_banner_label = ctk.CTkLabel(
+            frame, text="Audita el estado de las defensas de Windows (Defender, parches) y los mecanismos de persistencia (arrancado, servicios, tareas, WMI) que usan los atacantes.",
+            font=ctk.CTkFont(size=13), justify="left", anchor="w", text_color="#94a3b8", wraplength=900
+        )
+        self.harden_banner_label.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 10))
+
+        self.harden_scroll = ctk.CTkScrollableFrame(
+            frame, fg_color="#13171f", corner_radius=12, border_width=1, border_color="#1e293b"
+        )
+        self.harden_scroll.grid(row=2, column=0, sticky="nsew", padx=6, pady=2)
+
+        return frame
+
+    def start_harden_scan(self):
+        self.harden_btn.configure(state="disabled", text="⏳ Analizando...")
+
+        def worker():
+            res = self.system_hardener.run_all()
+            self.cached_hardening = res
+            self.after(0, lambda: self._render_harden_results(res))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _render_harden_results(self, res: Dict[str, Any]):
+        for widget in self.harden_scroll.winfo_children():
+            widget.destroy()
+
+        color = self._severity_color(res.get("global_status", "NORMAL"))
+        ctk.CTkLabel(self.harden_scroll, text=f"🛡️ ESTADO GLOBAL: {res['global_status']}",
+                     font=ctk.CTkFont(size=14, weight="bold"), text_color=color).pack(pady=10)
+
+        def card(title, status, message):
+            self._add_harden_card(self.harden_scroll, title, status, message)
+
+        card("🔒 Defender (Antivirus)", res["defender"]["status"], res["defender"]["message"])
+        wu = res["windows_update"]
+        wu_msg = res["windows_update"]["message"]
+        if wu.get("pending"):
+            wu_msg = f"Parches pendientes: {wu['pending']}. {wu_msg}"
+        card("📦 Windows Update", wu["status"], wu_msg)
+        smb = res["smb"]
+        card("🌐 SMB (puerto 445)", smb["status"], smb["message"])
+        p = res["persistence"]
+        p_summary = (
+            f"{len(p.get('issues', []))} Run keys · "
+            f"{len(p.get('startup_folder_files', []))} Startup · "
+            f"{len(p.get('services', []))} servicios no-Windows · "
+            f"{len(p.get('wmi', {}).get('consumers', []))} WMI consumers"
+        )
+        card("🔁 Persistencia", p["status"], p_summary)
+        self._render_harden_details(res)
+
+    def _add_harden_card(self, parent, title, status, message):
+        color = self._severity_color(status)
+        card = ctk.CTkFrame(parent, fg_color="#0f172a", corner_radius=8)
+        card.pack(fill="x", pady=4, padx=8)
+        ctk.CTkLabel(card, text=title, font=ctk.CTkFont(size=13, weight="bold"),
+                     text_color="#38bdf8", anchor="w").pack(side="left", padx=14, pady=6)
+        ctk.CTkLabel(card, text=f" {status} ", font=ctk.CTkFont(size=12, weight="bold"),
+                     text_color=color, anchor="w").pack(side="right", padx=14)
+        ctk.CTkLabel(card, text=message, font=ctk.CTkFont(size=11), text_color="#cbd5e1",
+                     wraplength=800, justify="left", anchor="w").pack(anchor="w", padx=14, pady=(0, 8))
+
+    def _render_harden_details(self, res):
+        p = res["persistence"]
+
+        def add_section(title, items):
+            if not items:
+                return
+            ctk.CTkLabel(self.harden_scroll, text=title, font=ctk.CTkFont(size=13, weight="bold"),
+                         text_color="#38bdf8").pack(anchor="w", padx=14, pady=(6, 2))
+            for it in items[:25]:
+                ctk.CTkLabel(self.harden_scroll, text=it, font=ctk.CTkFont(size=11),
+                             wraplength=800).pack(anchor="w", padx=16, pady=1)
+
+        add_section("⚠️ Persistencia detectada (Run keys)",
+                    [f"{e['hive']}\\{e['key']}: {e['name']} -> {e['value'][:60]}" for e in p.get("startup_entries", [])
+                     if "c:\\windows" not in e.get("value", "").lower()])
+        add_section("📁 Carpeta Startup (archivos)", p.get("startup_folder_files", []))
+        add_section("⚙️ Servicios no-Windows en ejecución",
+                    [f"{s['name']}  →  {s['path'][:60]}" for s in p.get("services", [])])
+        add_section("⏰ Tareas programadas",
+                    [f"{t['name']} ({t['user']}) -> {t['command'][:50]}" for t in p.get("scheduled_tasks", [])])
+        wmi_consumers = p.get("wmi", {}).get("consumers", [])
+        add_section("📡 WMI event consumers",
+                    [f"{c['id']} -> {c['command_line'][:50]}" for c in wmi_consumers])
+        if not (p.get("startup_entries") or p.get("startup_folder_files") or p.get("services")
+                or p.get("scheduled_tasks") or wmi_consumers):
+            ctk.CTkLabel(self.harden_scroll, text="Nada de interés detectado en persistencia.",
+                         font=ctk.CTkFont(size=12), text_color="#00c851").pack(pady=20)
+
+    # =========================================================================
+    # EXPORTACIÓN DE REPORTES
+    # =========================================================================
+    def _export_report(self):
+        report_dir = os.path.join(
+            os.environ.get("APPDATA", os.path.join(os.environ.get("USERPROFILE", ""), "AppData")),
+            "NetShield", "Reports"
+        )
+        try:
+            os.makedirs(report_dir, exist_ok=True)
+            payload = {
+                "type": "netshield-report",
+                "timestamp": datetime.now().isoformat(),
+                "ransomware": self.cached_ransomware,
+                "integrity": self.cached_integrity,
+                "hardening": self.cached_hardening,
+                "monitor_log": self.monitor_events[-50:],
+            }
+            path = os.path.join(report_dir, f"report-{datetime.now():%Y%m%d-%H%M%S}.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+            messagebox.showinfo("Reporte Exportado", f"Reporte guardado en:\n\n{path}")
+        except Exception as e:
+            messagebox.showerror("Error exportando reporte", str(e))
 
 
 def launch():

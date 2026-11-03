@@ -7,6 +7,7 @@ secuestro de DNS, puertos en escucha no autorizados y conexiones sospechosas.
 import socket
 import subprocess
 import re
+import ipaddress
 from typing import Dict, Any, List, Optional
 import psutil
 from core.wifi_analyzer import WiFiAnalyzer
@@ -104,13 +105,18 @@ class SecurityAuditor:
         """
         Verifica si los servidores DNS configurados están alterados o si las resoluciones
         están siendo manipuladas (DNS Poisoning / Redirección fraudulenta).
+
+        Prueba varios dominios canarios y detecta:
+          * Resolución a IPs privadas/locales (secuestro descarado)
+          * Varios dominios distintos resolviendo a la misma IP (señal de secuestro)
         """
         result = {
             "detected": False,
             "severity": "NORMAL",
             "title": "Integridad de Servidores y Respuestas DNS",
             "details": [],
-            "dns_servers": []
+            "dns_servers": [],
+            "test_domains": [],
         }
 
         net_info = self.wifi_analyzer.get_network_gateway_and_dns()
@@ -121,32 +127,74 @@ class SecurityAuditor:
             result["details"].append("No se pudieron detectar servidores DNS locales.")
             return result
 
-        # Probar resolución de dominio canario (google.com)
-        test_domain = "google.com"
-        local_ips = []
-        try:
-            addr_info = socket.getaddrinfo(test_domain, 80, socket.AF_INET)
-            local_ips = list(set([item[4][0] for item in addr_info]))
-        except Exception as e:
-            result["details"].append(f"Error al resolver {test_domain}: {e}")
+        # Dominios canarios: si resuelven a IPs públicas conocidas, el DNS está sano
+        test_domains = ["google.com", "github.com", "cloudflare.com", "microsoft.com"]
+        resolutions = {}
+        for domain in test_domains:
+            try:
+                addr_info = socket.getaddrinfo(domain, 443, socket.AF_INET)
+                ips = list(set([item[4][0] for item in addr_info]))
+                resolutions[domain] = ips
+            except Exception:
+                resolutions[domain] = []
 
-        # Comprobar si resuelve a IPs privadas (lo que sería un secuestro descarado)
-        for ip in local_ips:
-            if ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("127."):
-                result["detected"] = True
-                result["severity"] = "CRÍTICO"
+        # 1) Resolución a IPs no globales (privadas/locales): secuestro descarado
+        private_found = False
+        for domain, ips in resolutions.items():
+            for ip in ips:
+                if self._is_private_ip(ip):
+                    result["detected"] = True
+                    result["severity"] = "CRÍTICO"
+                    private_found = True
+                    result["details"].append(
+                        f"¡PELIGRO! El dominio {domain} resolvió a una IP privada/local ({ip}). "
+                        "Tus peticiones DNS están siendo secuestradas hacia un servidor local no oficial."
+                    )
+                    break
+            if private_found:
+                break
+
+        # 2) Varios dominios distintos resolviendo a la misma IP pública: señal de secuestro
+        shared_ips = {}
+        for domain, ips in resolutions.items():
+            for ip in ips:
+                if self._is_private_ip(ip):
+                    continue
+                shared_ips.setdefault(ip, []).append(domain)
+        shared = {ip: ds for ip, ds in shared_ips.items() if len(ds) >= 2}
+        if shared and not private_found:
+            result["detected"] = True
+            result["severity"] = "ADVERTENCIA"
+            for ip, ds in list(shared.items())[:3]:
                 result["details"].append(
-                    f"¡PELIGRO! El dominio {test_domain} resolvió a una IP privada ({ip}). "
-                    "Tus peticiones DNS están siendo secuestradas hacia un servidor local no oficial."
+                    f"¡SEÑAL DE SECUESTRO! {len(ds)} dominios distintos resuelven a la misma "
+                    f"IP pública ({ip}): {', '.join(ds)}. Posible DNS poisoning / redirección."
                 )
 
-        if not result["detected"]:
+        if not private_found and not shared:
+            ok_count = sum(1 for d, ips in resolutions.items() if ips)
             result["details"].append(
-                f"Servidores DNS activos: {', '.join(dns_servers)}. "
-                f"Las respuestas para dominios públicos resuelven correctamente sin redirecciones fraudulentas."
+                f"Servidores DNS activos: {', '.join(dns_servers)}. Probamos {len(test_domains)} "
+                f"dominios, {ok_count} resuelven correctamente a IPs públicas. "
+                "Sin redirecciones fraudulentas detectadas."
             )
+        else:
+            if not result["details"]:
+                result["details"].append("No se pudo resolver ningún dominio canario.")
 
+        result["test_domains"] = [d for d in test_domains if resolutions.get(d)]
         return result
+
+    def _is_private_ip(self, ip: str) -> bool:
+        """True si la IP es no-global (privada/loopback/link-local)."""
+        try:
+            return not ipaddress.ip_address(ip).is_global
+        except Exception:
+            return (
+                ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("127.")
+                or ip.startswith("172.") or ip.startswith("169.254.")
+                or ip.startswith("0.0.") or ip.startswith("224.") or ip.startswith("239.")
+            )
 
     def check_listening_ports(self) -> Dict[str, Any]:
         """
